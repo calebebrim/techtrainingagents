@@ -1,0 +1,1 @@
+full contents of backend/src/db/migrations/20230101000005-create-user-courses.js

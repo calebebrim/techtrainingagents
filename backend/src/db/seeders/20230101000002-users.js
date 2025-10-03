@@ -1,0 +1,1 @@
+full contents of backend/src/db/seeders/20230101000002-users.js

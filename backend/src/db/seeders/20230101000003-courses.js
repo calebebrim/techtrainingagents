@@ -1,0 +1,1 @@
+full contents of backend/src/db/seeders/20230101000003-courses.js
