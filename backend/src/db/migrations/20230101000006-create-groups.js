@@ -2,7 +2,7 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('users', {
+    await queryInterface.createTable('groups', {
       id: {
         type: Sequelize.UUID,
         allowNull: false,
@@ -22,36 +22,13 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: false
       },
-      email: {
-        type: Sequelize.STRING,
+      description: {
+        type: Sequelize.TEXT
+      },
+      is_system: {
+        type: Sequelize.BOOLEAN,
         allowNull: false,
-        unique: true
-      },
-      avatar_url: {
-        type: Sequelize.STRING
-      },
-      roles: {
-        type: Sequelize.JSON,
-        allowNull: false,
-        defaultValue: []
-      },
-      groups_meta: {
-        type: Sequelize.JSON,
-        allowNull: false,
-        defaultValue: []
-      },
-      status: {
-        type: Sequelize.ENUM('ACTIVE', 'INACTIVE', 'INVITED'),
-        allowNull: false,
-        defaultValue: 'ACTIVE'
-      },
-      theme_preference: {
-        type: Sequelize.ENUM('light', 'dark', 'system'),
-        allowNull: false,
-        defaultValue: 'system'
-      },
-      last_login_at: {
-        type: Sequelize.DATE
+        defaultValue: false
       },
       created_at: {
         allowNull: false,
@@ -67,6 +44,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('users');
+    await queryInterface.dropTable('groups');
   }
 };

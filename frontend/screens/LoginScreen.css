@@ -1,0 +1,143 @@
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  background: linear-gradient(135deg, #f8fafc, #ffffff, #f1f5f9);
+}
+
+.login-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-hero {
+  display: none;
+  position: relative;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(67, 56, 202, 0.85));
+  overflow: hidden;
+}
+
+.login-hero__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.35), transparent 60%);
+}
+
+.login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.login-panel__content {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-card {
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.provider-btn {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 14px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.provider-btn span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.provider-btn svg {
+  width: 28px;
+  height: 28px;
+}
+
+.provider-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+}
+
+.provider-btn:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.5);
+  outline-offset: 2px;
+}
+
+.provider-btn--google:hover {
+  border-color: #6366f1;
+}
+
+.provider-btn--github:hover {
+  border-color: #0f172a;
+}
+
+@media (max-width: 1023px) {
+  .login-shell {
+    background: #f8fafc;
+  }
+
+  .login-grid {
+    min-height: 100vh;
+  }
+
+  .login-panel {
+    padding: 56px 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .login-grid {
+    flex-direction: row;
+  }
+
+  .login-hero {
+    display: flex;
+    width: 50%;
+  }
+
+  .login-panel {
+    width: 50%;
+    padding: 72px 56px;
+  }
+}
+
+.dark .login-shell {
+  background: #0b1623;
+}
+
+.dark .login-panel__content span,
+.dark .login-panel__content h2,
+.dark .login-panel__content p {
+  color: inherit;
+}
+
+.dark .login-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+}
+
+.dark .provider-btn {
+  background: rgba(15, 23, 42, 0.95);
+  color: #e2e8f0;
+  border-color: rgba(71, 85, 105, 0.7);
+}
+
+.dark .provider-btn:hover {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.17);
+}

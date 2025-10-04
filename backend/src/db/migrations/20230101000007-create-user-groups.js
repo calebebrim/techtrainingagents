@@ -2,41 +2,30 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('course_topics', {
+    await queryInterface.createTable('user_groups', {
       id: {
         type: Sequelize.UUID,
-        primaryKey: true,
         allowNull: false,
+        primaryKey: true,
         defaultValue: Sequelize.UUIDV4
       },
-      course_id: {
+      user_id: {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'courses',
+          model: 'users',
           key: 'id'
         },
         onDelete: 'CASCADE'
       },
-      name: {
-        type: Sequelize.STRING,
-        allowNull: false
-      },
-      summary: {
-        type: Sequelize.TEXT
-      },
-      position: {
-        type: Sequelize.INTEGER,
+      group_id: {
+        type: Sequelize.UUID,
         allowNull: false,
-        defaultValue: 0
-      },
-      dependencies: {
-        type: Sequelize.JSON,
-        allowNull: false,
-        defaultValue: []
-      },
-      estimated_minutes: {
-        type: Sequelize.INTEGER
+        references: {
+          model: 'groups',
+          key: 'id'
+        },
+        onDelete: 'CASCADE'
       },
       created_at: {
         allowNull: false,
@@ -49,9 +38,16 @@ module.exports = {
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
+
+    await queryInterface.addConstraint('user_groups', {
+      fields: ['user_id', 'group_id'],
+      type: 'unique',
+      name: 'user_groups_user_id_group_id_unique'
+    });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('course_topics');
+    await queryInterface.removeConstraint('user_groups', 'user_groups_user_id_group_id_unique');
+    await queryInterface.dropTable('user_groups');
   }
 };

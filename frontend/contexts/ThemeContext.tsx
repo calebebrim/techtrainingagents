@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo, useEffect } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -23,6 +23,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             return newTheme;
         });
     };
+
+    useEffect(() => {
+        const root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+    }, [theme]);
 
     const value = useMemo(() => ({ theme, toggleTheme }), [theme]);
 

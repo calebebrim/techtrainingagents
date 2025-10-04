@@ -17,7 +17,7 @@ import MgmtPermissionsScreen from './screens/management/MgmtPermissionsScreen';
 import SystemOrganizationsScreen from './screens/system/SystemOrganizationsScreen';
 import SystemPermissionsScreen from './screens/system/SystemPermissionsScreen';
 import AccountSettingsScreen from './screens/AccountSettingsScreen';
-import { ApolloProvider } from '@apollo/client';
+import { ApolloProvider } from '@apollo/client/react';
 import client from './apollo';
 
 const AppRoutes: React.FC = () => {
