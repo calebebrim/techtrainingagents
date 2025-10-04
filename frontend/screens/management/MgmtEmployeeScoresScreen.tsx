@@ -1,27 +1,33 @@
-
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@apollo/client/react';
 import { SearchIcon } from '../../components/icons';
-import { EmployeeCourseScore, TopicScore } from '../../types';
+import { EmployeeCourseScore } from '../../types';
 import Modal from '../../components/common/Modal';
+import { ORGANIZATION_ENROLLMENTS_QUERY } from '../../graphql/queries';
+import { useAuth } from '../../contexts/AuthContext';
 
-const mockEmployeeScores: EmployeeCourseScore[] = [
-    { userId: 'u1', userName: 'Alice Smith', avatarUrl: 'https://picsum.photos/seed/u1/100/100', courseId: 'c1', courseName: 'Advanced React', overallScore: 92, topicScores: [
-        { topicId: 't1', topicName: 'Introduction', score: 100 },
-        { topicId: 't2', topicName: 'Core Concepts', score: 95 },
-        { topicId: 't3', topicName: 'Advanced Hooks', score: 88 },
-        { topicId: 't4', topicName: 'State Management', score: 90 },
-    ]},
-    { userId: 'u2', userName: 'Bob Johnson', avatarUrl: 'https://picsum.photos/seed/u2/100/100', courseId: 'c1', courseName: 'Advanced React', overallScore: 85, topicScores: [
-        { topicId: 't1', topicName: 'Introduction', score: 90 },
-        { topicId: 't2', topicName: 'Core Concepts', score: 85 },
-        { topicId: 't3', topicName: 'Advanced Hooks', score: 80 },
-        { topicId: 't4', topicName: 'State Management', score: -1 }, // Not started
-    ]},
-     { userId: 'u3', userName: 'Charlie Brown', avatarUrl: 'https://picsum.photos/seed/u3/100/100', courseId: 'c2', courseName: 'UI/UX Design', overallScore: 95, topicScores: [
-        { topicId: 'd1', topicName: 'Figma Basics', score: 98 },
-        { topicId: 'd2', topicName: 'Prototyping', score: 92 },
-    ]},
-];
+interface EnrollmentsQueryData {
+    enrollments: Array<{
+        id: string;
+        status: string;
+        progress: number;
+        score: number | null;
+        topicScores: Array<{
+            topicId: string;
+            topicName: string;
+            score: number;
+        }>;
+        user: {
+            id: string;
+            name: string;
+            avatarUrl?: string | null;
+        };
+        course: {
+            id: string;
+            title: string;
+        };
+    }>;
+}
 
 const ScoreBadge: React.FC<{score: number}> = ({ score }) => {
     if (score === -1) {
@@ -31,16 +37,84 @@ const ScoreBadge: React.FC<{score: number}> = ({ score }) => {
     return <span className={`px-2 py-1 font-semibold rounded-full ${color}`}>{score}%</span>
 };
 
+const formatStatus = (status?: string) => {
+    if (!status) return '—';
+    return status
+        .toLowerCase()
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};
+
 
 const MgmtEmployeeScoresScreen: React.FC = () => {
+    const { user } = useAuth();
+    const organizationId = user?.organizationId;
+
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedScore, setSelectedScore] = useState<EmployeeCourseScore | null>(null);
 
+    const { data, loading, error } = useQuery<EnrollmentsQueryData>(
+        ORGANIZATION_ENROLLMENTS_QUERY,
+        {
+            variables: { organizationId: organizationId ?? '' },
+            skip: !organizationId,
+        }
+    );
+
+    const scores = useMemo<EmployeeCourseScore[]>(() => {
+        if (!data?.enrollments) {
+            return [];
+        }
+        return data.enrollments.map((enrollment) => ({
+            userId: enrollment.user.id,
+            userName: enrollment.user.name,
+            avatarUrl: enrollment.user.avatarUrl,
+            courseId: enrollment.course.id,
+            courseName: enrollment.course.title,
+            overallScore: typeof enrollment.score === 'number' ? Math.round(enrollment.score) : -1,
+            topicScores: enrollment.topicScores.map((topicScore) => ({
+                topicId: topicScore.topicId,
+                topicName: topicScore.topicName,
+                score: topicScore.score ?? -1,
+            })),
+            status: enrollment.status,
+            progress: Math.round((enrollment.progress ?? 0) * 100),
+        }));
+    }, [data]);
+
     const filteredScores = useMemo(() =>
-        mockEmployeeScores.filter(s =>
+        scores.filter(s =>
             s.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             s.courseName.toLowerCase().includes(searchQuery.toLowerCase())
-        ), [searchQuery]);
+        ), [scores, searchQuery]);
+
+    if (!organizationId) {
+        return (
+            <div className="container mx-auto">
+                <h1 className="text-3xl font-bold mb-6">Employee Scores</h1>
+                <p className="text-gray-600 dark:text-gray-400">Select an organization to view employee performance.</p>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="container mx-auto">
+                <h1 className="text-3xl font-bold mb-6">Employee Scores</h1>
+                <p className="text-gray-600 dark:text-gray-400">Loading employee performance...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="container mx-auto">
+                <h1 className="text-3xl font-bold mb-6">Employee Scores</h1>
+                <p className="text-red-600">Failed to load employee scores: {error.message}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto">
@@ -71,13 +145,26 @@ const MgmtEmployeeScoresScreen: React.FC = () => {
                         {filteredScores.map(score => (
                             <tr key={`${score.userId}-${score.courseId}`} onClick={() => setSelectedScore(score)} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
                                 <td className="px-6 py-4 flex items-center">
-                                    <img src={score.avatarUrl} alt={score.userName} className="w-8 h-8 rounded-full mr-3" />
+                                    {score.avatarUrl ? (
+                                        <img src={score.avatarUrl} alt={score.userName} className="w-8 h-8 rounded-full mr-3 object-cover" />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-full mr-3 bg-primary-600 text-white flex items-center justify-center uppercase text-sm">
+                                            {score.userName.charAt(0)}
+                                        </div>
+                                    )}
                                     <span className="font-medium text-gray-900 dark:text-white">{score.userName}</span>
                                 </td>
                                 <td className="px-6 py-4">{score.courseName}</td>
                                 <td className="px-6 py-4"><ScoreBadge score={score.overallScore} /></td>
                             </tr>
                         ))}
+                        {filteredScores.length === 0 && (
+                            <tr>
+                                <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    No employees match your search.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -87,7 +174,11 @@ const MgmtEmployeeScoresScreen: React.FC = () => {
                     <div className="space-y-4">
                         <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                             <h3 className="text-lg font-semibold">{selectedScore.courseName}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Overall Score: <ScoreBadge score={selectedScore.overallScore}/></p>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                                <span>Overall Score: <ScoreBadge score={selectedScore.overallScore}/></span>
+                                <span>Status: {formatStatus(selectedScore.status)}</span>
+                                <span>Progress: {typeof selectedScore.progress === 'number' ? `${selectedScore.progress}%` : '—'}</span>
+                            </div>
                         </div>
                         <div>
                             <h4 className="font-semibold mb-2">Topic Breakdown:</h4>
@@ -98,6 +189,11 @@ const MgmtEmployeeScoresScreen: React.FC = () => {
                                         <ScoreBadge score={topicScore.score} />
                                     </li>
                                 ))}
+                                {selectedScore.topicScores.length === 0 && (
+                                    <li className="p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg">
+                                        No topic scores recorded yet.
+                                    </li>
+                                )}
                             </ul>
                         </div>
                     </div>

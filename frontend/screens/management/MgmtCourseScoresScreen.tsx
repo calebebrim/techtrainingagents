@@ -1,36 +1,107 @@
-
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@apollo/client/react';
 import { SearchIcon } from '../../components/icons';
-import { CourseStats, CourseTopic } from '../../types';
+import { CourseStats } from '../../types';
 import Modal from '../../components/common/Modal';
 import TopicGraph from '../../components/common/TopicGraph';
+import { ORGANIZATION_DASHBOARD_QUERY } from '../../graphql/queries';
+import { useAuth } from '../../contexts/AuthContext';
 
-const mockTopics: CourseTopic[] = [
-    { id: 't1', name: 'Introduction', dependencies: [] },
-    { id: 't2', name: 'Core Concepts', dependencies: ['t1'] },
-    { id: 't3', name: 'Advanced Hooks', dependencies: ['t2'] },
-    { id: 't4', name: 'State Management', dependencies: ['t2'] },
-    { id: 't5', name: 'Deployment', dependencies: ['t3', 't4'] },
-];
-
-const mockCourseData: CourseStats[] = [
-    { courseId: 'c1', courseName: 'Advanced React', averageScore: 88, enrolledCount: 50, completionRate: 75, topics: mockTopics, employees: [
-        {userId: 'u1', userName: 'Alice', score: 92}, {userId: 'u2', userName: 'Bob', score: 85}
-    ]},
-    { courseId: 'c2', courseName: 'UI/UX Design', averageScore: 92, enrolledCount: 45, completionRate: 85, topics: mockTopics.slice(0,3), employees: [
-         {userId: 'u3', userName: 'Charlie', score: 95}, {userId: 'u4', userName: 'Diana', score: 90}
-    ]},
-    { courseId: 'c3', courseName: 'Agile Management', averageScore: 75, enrolledCount: 60, completionRate: 60, topics: [], employees: []},
-];
+interface CourseStatsQueryData {
+    organizationDashboard: {
+        courseStats: Array<{
+            averageScore: number | null;
+            enrolledCount: number;
+            completionRate: number;
+            course: {
+                id: string;
+                title: string;
+                topics?: Array<{
+                    id: string;
+                    name: string;
+                    dependencies: string[];
+                }>;
+                employees?: Array<{
+                    overallScore: number | null;
+                    user: {
+                        id: string;
+                        name: string;
+                    };
+                }>;
+            };
+        }>;
+    } | null;
+}
 
 const MgmtCourseScoresScreen: React.FC = () => {
+    const { user } = useAuth();
+    const organizationId = user?.organizationId;
+
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCourse, setSelectedCourse] = useState<CourseStats | null>(null);
 
+    const { data, loading, error } = useQuery<CourseStatsQueryData>(
+        ORGANIZATION_DASHBOARD_QUERY,
+        {
+            variables: { organizationId: organizationId ?? '' },
+            skip: !organizationId,
+        }
+    );
+
+    const courses = useMemo<CourseStats[]>(() => {
+        if (!data?.organizationDashboard?.courseStats) {
+            return [];
+        }
+        return data.organizationDashboard.courseStats.map((stat) => ({
+            courseId: stat.course.id,
+            courseName: stat.course.title,
+            averageScore: Math.round(stat.averageScore ?? 0),
+            enrolledCount: stat.enrolledCount,
+            completionRate: Math.round((stat.completionRate ?? 0) * 100),
+            topics: stat.course.topics?.map((topic) => ({
+                id: topic.id,
+                name: topic.name,
+                dependencies: topic.dependencies ?? []
+            })) ?? [],
+            employees: stat.course.employees?.map((employee) => ({
+                userId: employee.user.id,
+                userName: employee.user.name,
+                score: employee.overallScore ?? -1
+            })) ?? []
+        }));
+    }, [data]);
+
     const filteredCourses = useMemo(() => 
-        mockCourseData.filter(course => 
+        courses.filter(course => 
             course.courseName.toLowerCase().includes(searchQuery.toLowerCase())
-        ), [searchQuery]);
+        ), [courses, searchQuery]);
+
+    if (!organizationId) {
+        return (
+            <div className="container mx-auto">
+                <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
+                <p className="text-gray-600 dark:text-gray-400">Select an organization to view course analytics.</p>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="container mx-auto">
+                <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
+                <p className="text-gray-600 dark:text-gray-400">Loading course analytics...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="container mx-auto">
+                <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
+                <p className="text-red-600">Failed to load course data: {error.message}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto">
@@ -67,6 +138,13 @@ const MgmtCourseScoresScreen: React.FC = () => {
                                 <td className="px-6 py-4">{course.completionRate}%</td>
                             </tr>
                         ))}
+                        {filteredCourses.length === 0 && (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    No courses match your search.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                  </table>
             </div>
@@ -92,7 +170,7 @@ const MgmtCourseScoresScreen: React.FC = () => {
                                         {selectedCourse.employees.map(emp => (
                                             <tr key={emp.userId} className="hover:bg-gray-50 dark:hover:bg-gray-600">
                                                 <td className="px-6 py-4 font-medium">{emp.userName}</td>
-                                                <td className="px-6 py-4">{emp.score}%</td>
+                                                <td className="px-6 py-4">{emp.score >= 0 ? `${emp.score}%` : 'Not Attempted'}</td>
                                             </tr>
                                         ))}
                                     </tbody>

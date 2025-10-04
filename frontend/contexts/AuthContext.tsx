@@ -1,37 +1,99 @@
 
-import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback } from 'react';
+import { gql } from '@apollo/client';
 import { User, UserRole } from '../types';
+import client from '../apollo';
 
 interface AuthContextType {
     user: User | null;
-    login: (user: User) => void;
+    loading: boolean;
+    login: () => Promise<void>;
     logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mockUser: User = {
-    id: 'user-1',
-    name: 'Admin User',
-    email: 'admin@example.com',
-    avatarUrl: 'https://picsum.photos/seed/user1/100/100',
-    roles: [UserRole.SYSTEM_ADMIN, UserRole.ADMIN, UserRole.COURSE_COORDINATOR],
-    organizationId: 'org-1'
+interface MeQueryResult {
+    me: {
+        id: string;
+        name: string;
+        email: string;
+        avatarUrl?: string | null;
+        roles: string[];
+        status?: string | null;
+        themePreference?: string | null;
+        organization?: {
+            id: string;
+            name?: string | null;
+        } | null;
+        groups?: Array<{ id: string }> | null;
+    } | null;
+}
+
+const ME_QUERY = gql`
+    query Me {
+        me {
+            id
+            name
+            email
+            avatarUrl
+            roles
+            status
+            themePreference
+            organization {
+                id
+                name
+            }
+            groups {
+                id
+            }
+        }
+    }
+`;
+
+const mapRoles = (roles: string[]): UserRole[] => {
+    const validRoles = Object.values(UserRole) as string[];
+    return roles.filter((role): role is UserRole => validRoles.includes(role));
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    const login = (userData: User) => {
-        // In a real app, you'd get this from an API response
-        setUser(mockUser);
-    };
+    const login = useCallback(async () => {
+        setLoading(true);
+        try {
+            const { data } = await client.query<MeQueryResult>({
+                query: ME_QUERY,
+                fetchPolicy: 'network-only'
+            });
+            if (data?.me) {
+                const mappedUser: User = {
+                    id: data.me.id,
+                    name: data.me.name,
+                    email: data.me.email,
+                    avatarUrl: data.me.avatarUrl,
+                    roles: mapRoles(data.me.roles ?? []),
+                    organizationId: data.me.organization?.id ?? '',
+                    organizationName: data.me.organization?.name,
+                    status: data.me.status,
+                    themePreference: data.me.themePreference,
+                    groups: data.me.groups?.map((group) => group.id) ?? []
+                };
+                setUser(mappedUser);
+            }
+        } catch (error) {
+            console.error('Failed to fetch user profile', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [client]);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         setUser(null);
-    };
+    }, []);
 
-    const value = useMemo(() => ({ user, login, logout }), [user]);
+    const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout]);
 
     return (
         <AuthContext.Provider value={value}>

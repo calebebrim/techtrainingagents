@@ -21,7 +21,15 @@ import { ApolloProvider } from '@apollo/client/react';
 import client from './apollo';
 
 const AppRoutes: React.FC = () => {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="flex h-screen items-center justify-center text-gray-600 dark:text-gray-300">
+                Loading your workspace...
+            </div>
+        );
+    }
 
     if (!user) {
         return (

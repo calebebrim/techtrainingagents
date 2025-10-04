@@ -1,20 +1,107 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useQuery } from '@apollo/client/react';
 import { UserRole, User, UserGroup } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { ORGANIZATION_GROUPS_QUERY, ORGANIZATION_USERS_QUERY } from '../../graphql/queries';
 
-const mockGroups: UserGroup[] = [
-    {id: 'g1', name: UserRole.ADMIN, description: 'Full access to organization management.'},
-    {id: 'g2', name: UserRole.COURSE_COORDINATOR, description: 'Can create and manage courses.'},
-    {id: 'g3', name: UserRole.TECHNICAL_STAFF, description: 'Standard employee access to courses.'},
-];
+interface GroupsQueryData {
+    groups: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        isSystem: boolean;
+    }>;
+}
 
-const mockUsers: User[] = [
-    { id: 'u1', name: 'Alice Smith', email: 'alice@example.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', roles: [UserRole.ADMIN], organizationId: 'o1', groups: ['g1', 'g3'] },
-    { id: 'u2', name: 'Bob Johnson', email: 'bob@example.com', avatarUrl: 'https://picsum.photos/seed/u2/100/100', roles: [UserRole.COURSE_COORDINATOR], organizationId: 'o1', groups: ['g2'] },
-    { id: 'u3', name: 'Charlie Brown', email: 'charlie@example.com', avatarUrl: 'https://picsum.photos/seed/u3/100/100', roles: [UserRole.TECHNICAL_STAFF], organizationId: 'o1', groups: ['g3'] },
-];
+interface UsersQueryData {
+    users: Array<{
+        id: string;
+        name: string;
+        email: string;
+        avatarUrl?: string | null;
+        roles: string[];
+        groups?: Array<{ id: string }>;
+    }>;
+}
 
 const MgmtPermissionsScreen: React.FC = () => {
+    const { user } = useAuth();
+    const organizationId = user?.organizationId;
+
+    const {
+        data: groupsData,
+        loading: groupsLoading,
+        error: groupsError,
+    } = useQuery<GroupsQueryData>(ORGANIZATION_GROUPS_QUERY, {
+        variables: { organizationId: organizationId ?? '' },
+        skip: !organizationId,
+    });
+
+    const {
+        data: usersData,
+        loading: usersLoading,
+        error: usersError,
+    } = useQuery<UsersQueryData>(ORGANIZATION_USERS_QUERY, {
+        variables: { organizationId: organizationId ?? '' },
+        skip: !organizationId,
+    });
+
+    const groups: UserGroup[] = useMemo(() => {
+        if (!groupsData?.groups) {
+            return [];
+        }
+        return groupsData.groups.map((group) => ({
+            id: group.id,
+            name: group.name,
+            description: group.description ?? '',
+        }));
+    }, [groupsData]);
+
+    const validRoles = useMemo(() => Object.values(UserRole) as string[], []);
+
+    const users: User[] = useMemo(() => {
+        if (!usersData?.users) {
+            return [];
+        }
+        return usersData.users.map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            email: entry.email,
+            avatarUrl: entry.avatarUrl ?? undefined,
+            roles: entry.roles.filter((role): role is UserRole => validRoles.includes(role)),
+            organizationId: organizationId ?? '',
+            groups: entry.groups?.map((group) => group.id) ?? [],
+        }));
+    }, [usersData, validRoles, organizationId]);
+
+    if (!organizationId) {
+        return (
+            <div className="container mx-auto space-y-8">
+                <h1 className="text-3xl font-bold">User Permissions</h1>
+                <p className="text-gray-600 dark:text-gray-400">Select an organization to manage permissions.</p>
+            </div>
+        );
+    }
+
+    if (groupsLoading || usersLoading) {
+        return (
+            <div className="container mx-auto space-y-8">
+                <h1 className="text-3xl font-bold">User Permissions</h1>
+                <p className="text-gray-600 dark:text-gray-400">Loading permissions data...</p>
+            </div>
+        );
+    }
+
+    if (groupsError || usersError) {
+        const message = groupsError?.message ?? usersError?.message ?? 'Unknown error';
+        return (
+            <div className="container mx-auto space-y-8">
+                <h1 className="text-3xl font-bold">User Permissions</h1>
+                <p className="text-red-600">Failed to load permissions: {message}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="container mx-auto space-y-8">
             <h1 className="text-3xl font-bold">User Permissions</h1>
@@ -29,12 +116,15 @@ const MgmtPermissionsScreen: React.FC = () => {
                             </button>
                         </div>
                         <div className="space-y-3">
-                            {mockGroups.map(group => (
+                            {groups.map(group => (
                                 <div key={group.id} className="p-4 border dark:border-gray-700 rounded-lg">
                                     <h3 className="font-semibold">{group.name}</h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{group.description}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{group.description || 'No description provided.'}</p>
                                 </div>
                             ))}
+                            {groups.length === 0 && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">No groups available.</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -52,10 +142,16 @@ const MgmtPermissionsScreen: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {mockUsers.map(user => (
+                                    {users.map(user => (
                                         <tr key={user.id} className="border-b dark:border-gray-700">
                                             <td className="px-6 py-4 flex items-center">
-                                                 <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full mr-3" />
+                                                 {user.avatarUrl ? (
+                                                    <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full mr-3 object-cover" />
+                                                 ) : (
+                                                    <div className="w-8 h-8 rounded-full mr-3 bg-primary-600 text-white flex items-center justify-center uppercase text-sm">
+                                                        {user.name.charAt(0)}
+                                                    </div>
+                                                 )}
                                                 <div>
                                                     <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
                                                     <div className="text-xs text-gray-500">{user.email}</div>
@@ -63,11 +159,17 @@ const MgmtPermissionsScreen: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-wrap gap-1">
-                                                {user.groups?.map(groupId => (
-                                                    <span key={groupId} className="px-2 py-0.5 text-xs rounded-full bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
-                                                        {mockGroups.find(g => g.id === groupId)?.name}
-                                                    </span>
-                                                ))}
+                                                {user.groups?.map(groupId => {
+                                                    const group = groups.find(g => g.id === groupId);
+                                                    return (
+                                                        <span key={groupId} className="px-2 py-0.5 text-xs rounded-full bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                                                            {group?.name ?? 'Unknown'}
+                                                        </span>
+                                                    );
+                                                })}
+                                                {(!user.groups || user.groups.length === 0) && (
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">No groups</span>
+                                                )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -75,6 +177,11 @@ const MgmtPermissionsScreen: React.FC = () => {
                                             </td>
                                         </tr>
                                     ))}
+                                    {users.length === 0 && (
+                                        <tr>
+                                            <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No users found for this organization.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>

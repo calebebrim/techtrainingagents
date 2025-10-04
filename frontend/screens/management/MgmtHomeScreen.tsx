@@ -1,16 +1,39 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useQuery } from '@apollo/client/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { UserGroupIcon, BookOpenIcon, AcademicCapIcon, ChartBarIcon } from '../../components/icons';
 import { CourseStats } from '../../types';
+import { ORGANIZATION_DASHBOARD_QUERY } from '../../graphql/queries';
+import { useAuth } from '../../contexts/AuthContext';
 
-// FIX: Added missing 'topics' and 'employees' properties to each object to match the CourseStats type.
-const mockCourseStats: CourseStats[] = [
-    { courseId: 'c1', courseName: 'Advanced React', averageScore: 88, enrolledCount: 50, completionRate: 75, topics: [], employees: [] },
-    { courseId: 'c2', courseName: 'UI/UX Design', averageScore: 92, enrolledCount: 45, completionRate: 85, topics: [], employees: [] },
-    { courseId: 'c3', courseName: 'Agile Management', averageScore: 75, enrolledCount: 60, completionRate: 60, topics: [], employees: [] },
-    { courseId: 'c4', courseName: 'Node.js Backend', averageScore: 65, enrolledCount: 30, completionRate: 50, topics: [], employees: [] },
-    { courseId: 'c5', courseName: 'Data Science Intro', averageScore: 95, enrolledCount: 25, completionRate: 90, topics: [], employees: [] },
-];
+interface OrganizationDashboardData {
+    organizationDashboard: {
+        totalEmployees: number;
+        activeCourses: number;
+        averageScore: number | null;
+        courseStats: Array<{
+            averageScore: number | null;
+            enrolledCount: number;
+            completionRate: number;
+            course: {
+                id: string;
+                title: string;
+                topics?: Array<{
+                    id: string;
+                    name: string;
+                    dependencies: string[];
+                }>;
+                employees?: Array<{
+                    overallScore: number | null;
+                    user: {
+                        id: string;
+                        name: string;
+                    };
+                }>;
+            };
+        }>;
+    } | null;
+}
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex items-center">
@@ -24,16 +47,87 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
     </div>
 );
 
-const getScoreHealthColor = (score: number) => {
+const getScoreHealthColor = (score: number | null | undefined) => {
+    if (score === null || score === undefined || Number.isNaN(score)) {
+        return 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+    }
     if (score >= 85) return 'bg-success/20 text-success';
     if (score >= 70) return 'bg-warning/20 text-warning';
     return 'bg-danger/20 text-danger';
 };
 
 const MgmtHomeScreen: React.FC = () => {
-    const totalCollaborators = 125;
-    const activeCourses = 12;
-    const avgScore = 82;
+    const { user } = useAuth();
+    const organizationId = user?.organizationId;
+
+    const { data, loading, error } = useQuery<OrganizationDashboardData>(
+        ORGANIZATION_DASHBOARD_QUERY,
+        {
+            variables: { organizationId: organizationId ?? '' },
+            skip: !organizationId,
+        }
+    );
+
+    const courseStats: CourseStats[] = useMemo(() => {
+        if (!data?.organizationDashboard?.courseStats) {
+            return [];
+        }
+        return data.organizationDashboard.courseStats.map((courseStat) => ({
+            courseId: courseStat.course.id,
+            courseName: courseStat.course.title,
+            averageScore: Math.round(courseStat.averageScore ?? 0),
+            enrolledCount: courseStat.enrolledCount,
+            completionRate: Math.round((courseStat.completionRate ?? 0) * 100),
+            topics: courseStat.course.topics?.map((topic) => ({
+                id: topic.id,
+                name: topic.name,
+                dependencies: topic.dependencies ?? []
+            })) ?? [],
+            employees: courseStat.course.employees?.map((employee) => ({
+                userId: employee.user.id,
+                userName: employee.user.name,
+                score: employee.overallScore ?? -1
+            })) ?? []
+        }));
+    }, [data]);
+
+    const totalCollaborators = data?.organizationDashboard?.totalEmployees ?? 0;
+    const activeCourses = data?.organizationDashboard?.activeCourses ?? 0;
+    const avgScore = data?.organizationDashboard?.averageScore;
+    const avgCompletion = useMemo(() => {
+        if (courseStats.length === 0) {
+            return null;
+        }
+        const total = courseStats.reduce((acc, stat) => acc + stat.completionRate, 0);
+        return Math.round(total / courseStats.length);
+    }, [courseStats]);
+
+    if (!organizationId) {
+        return (
+            <div className="container mx-auto space-y-8">
+                <h1 className="text-3xl font-bold">Management Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400">Select an organization to view analytics.</p>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="container mx-auto space-y-8">
+                <h1 className="text-3xl font-bold">Management Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400">Loading analytics...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="container mx-auto space-y-8">
+                <h1 className="text-3xl font-bold">Management Dashboard</h1>
+                <p className="text-red-600">Failed to load dashboard: {error.message}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto space-y-8">
@@ -42,8 +136,8 @@ const MgmtHomeScreen: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="Total Collaborators" value={totalCollaborators.toString()} icon={<UserGroupIcon className="w-6 h-6"/>} />
                 <StatCard title="Active Courses" value={activeCourses.toString()} icon={<BookOpenIcon className="w-6 h-6"/>} />
-                <StatCard title="Average Score" value={`${avgScore}%`} icon={<AcademicCapIcon className="w-6 h-6"/>} />
-                <StatCard title="Avg Completion" value="72%" icon={<ChartBarIcon className="w-6 h-6"/>} />
+                <StatCard title="Average Score" value={avgScore !== null && avgScore !== undefined ? `${Math.round(avgScore)}%` : '—'} icon={<AcademicCapIcon className="w-6 h-6"/>} />
+                <StatCard title="Avg Completion" value={avgCompletion !== null && avgCompletion !== undefined ? `${avgCompletion}%` : '—'} icon={<ChartBarIcon className="w-6 h-6"/>} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -51,7 +145,7 @@ const MgmtHomeScreen: React.FC = () => {
                     <h2 className="text-xl font-semibold mb-4">Course Performance</h2>
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={mockCourseStats}>
+                            <BarChart data={courseStats}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
                                 <XAxis dataKey="courseName" />
                                 <YAxis />
@@ -75,7 +169,7 @@ const MgmtHomeScreen: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {mockCourseStats.map(stat => (
+                                {courseStats.map(stat => (
                                     <tr key={stat.courseId} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                         <th scope="row" className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{stat.courseName}</th>
                                         <td className="px-6 py-4">

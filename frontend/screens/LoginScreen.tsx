@@ -1,27 +1,16 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, UserRole } from '../types';
 import { GoogleIcon, GithubIcon } from '../components/icons';
 import Modal from '../components/common/Modal';
 import './LoginScreen.css';
 
 const LoginScreen: React.FC = () => {
-    const { login } = useAuth();
+    const { login, loading } = useAuth();
     const [isRegisterModalOpen, setRegisterModalOpen] = useState(false);
 
-    const handleLogin = () => {
-        // This is a mock login. In a real app, this would involve a popup/redirect
-        // and a callback with the user's data from the provider.
-        const mockUserData: User = {
-            id: 'user-1',
-            name: 'Admin User',
-            email: 'admin@example.com',
-            avatarUrl: 'https://picsum.photos/seed/user1/100/100',
-            roles: [UserRole.SYSTEM_ADMIN, UserRole.ADMIN, UserRole.COURSE_COORDINATOR, UserRole.TECHNICAL_STAFF],
-            organizationId: 'org-1'
-        };
-        login(mockUserData);
+    const handleLogin = async () => {
+        await login();
     };
 
     return (
@@ -81,20 +70,22 @@ const LoginScreen: React.FC = () => {
                                 <div className="space-y-4">
                                     <button
                                         onClick={handleLogin}
-                                        className="provider-btn provider-btn--google w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:-translate-y-[1px] hover:border-primary-500 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-primary-400"
+                                        disabled={loading}
+                                        className="provider-btn provider-btn--google w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:-translate-y-[1px] hover:border-primary-500 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-primary-400"
                                     >
                                         <span className="flex items-center justify-center gap-3">
                                             <GoogleIcon className="h-6 w-6" />
-                                            <span>Sign in with Google</span>
+                                            <span>{loading ? 'Signing you in…' : 'Sign in with Google'}</span>
                                         </span>
                                     </button>
                                     <button
                                         onClick={handleLogin}
-                                        className="provider-btn provider-btn--github w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:-translate-y-[1px] hover:border-gray-900 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-400"
+                                        disabled={loading}
+                                        className="provider-btn provider-btn--github w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:-translate-y-[1px] hover:border-gray-900 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-400"
                                     >
                                         <span className="flex items-center justify-center gap-3">
                                             <GithubIcon className="h-6 w-6" />
-                                            <span>Sign in with GitHub</span>
+                                            <span>{loading ? 'Signing you in…' : 'Sign in with GitHub'}</span>
                                         </span>
                                     </button>
                                 </div>

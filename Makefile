@@ -8,6 +8,7 @@ FRONTEND_PREVIEW_SCRIPT ?= preview
 BACKEND_BUILD_SCRIPT ?= build
 BACKEND_START_SCRIPT ?= start
 BACKEND_DEPLOY_SCRIPT ?= start
+BACKEND_URL=https://localhost:4000
 
 .PHONY: install install-frontend install-backend \
         build build-frontend build-backend \
@@ -43,7 +44,7 @@ deploy-backend: build-backend
 start: start-backend start-frontend
 
 start-frontend:
-	cd $(FRONTEND_DIR) && $(NPM) run $(FRONTEND_DEV_SCRIPT)
+	cd $(FRONTEND_DIR) && VITE_BACKEND_URL=$(BACKEND_URL) $(NPM) run $(FRONTEND_DEV_SCRIPT)
 
 start-backend:
 	cd $(BACKEND_DIR) && $(NPM) run $(BACKEND_START_SCRIPT)

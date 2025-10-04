@@ -10,9 +10,12 @@ export interface User {
     id: string;
     name: string;
     email: string;
-    avatarUrl: string;
+    avatarUrl?: string | null;
     roles: UserRole[];
     organizationId: string;
+    organizationName?: string;
+    status?: string;
+    themePreference?: string;
     groups?: string[]; // Group IDs or names
 }
 
@@ -41,11 +44,13 @@ export interface TopicScore {
 export interface EmployeeCourseScore {
     userId: string;
     userName: string;
-    avatarUrl: string;
+    avatarUrl?: string | null;
     courseId: string;
     courseName: string;
     overallScore: number;
     topicScores: TopicScore[];
+    status?: string;
+    progress?: number;
 }
 
 export interface CourseStats {

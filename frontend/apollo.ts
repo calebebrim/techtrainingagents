@@ -1,7 +1,10 @@
-import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
+import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { HttpLink } from '@apollo/client/link/http';
+const { VITE_BACKEND_URL } = import.meta.env;
+const normalizedBackendUrl = VITE_BACKEND_URL?.replace(/\/$/, '') ?? '';
 
-const httpLink = createHttpLink({
-  uri: '/graphql', // Your GraphQL server endpoint
+const httpLink = new HttpLink({
+  uri: normalizedBackendUrl ? `${normalizedBackendUrl}/graphql` : '/graphql',
 });
 
 const client = new ApolloClient({
