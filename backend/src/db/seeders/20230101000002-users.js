@@ -54,12 +54,35 @@ const USERS = [
     theme_preference: 'system',
     created_at: new Date(),
     updated_at: new Date()
+  },
+  {
+    id: 'e78b4c88-df9f-4f63-813c-7b0a2eaa3a8d',
+    organization_id: '9c7d1f27-1af8-4d34-8b13-a3ff6bd7f3ca',
+    name: 'Calebe Brim',
+    email: 'calebebrim@gmail.com',
+    avatar_url: null,
+    roles: ['Administrator'],
+    groups_meta: [],
+    status: 'ACTIVE',
+    theme_preference: 'system',
+    last_login_at: new Date(),
+    created_at: new Date(),
+    updated_at: new Date()
   }
 ];
 
 module.exports = {
   async up(queryInterface) {
-    await queryInterface.bulkInsert('users', USERS, {});
+    const isSqlite = queryInterface.sequelize.getDialect() === 'sqlite';
+    const payload = isSqlite
+      ? USERS.map((user) => ({
+          ...user,
+          roles: JSON.stringify(user.roles ?? []),
+          groups_meta: JSON.stringify(user.groups_meta ?? [])
+        }))
+      : USERS;
+
+    await queryInterface.bulkInsert('users', payload, {});
   },
 
   async down(queryInterface) {

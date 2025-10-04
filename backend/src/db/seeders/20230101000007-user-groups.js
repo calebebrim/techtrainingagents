@@ -28,6 +28,13 @@ const USER_GROUPS = [
     group_id: '2ea66c33-6eaf-4da7-932c-2d9b998bb2cd',
     created_at: new Date(),
     updated_at: new Date()
+  },
+  {
+    id: '6c6e24ad-7b0e-4e42-9fb0-58b8aac0d0a2',
+    user_id: 'e78b4c88-df9f-4f63-813c-7b0a2eaa3a8d',
+    group_id: 'c4939ccf-21f4-4f9b-8a7d-5f7f52e6a992',
+    created_at: new Date(),
+    updated_at: new Date()
   }
 ];
 

@@ -2,15 +2,7 @@
 export default {
   content: [
     './index.html',
-    './index.{ts,tsx}',
-    './App.tsx',
-    './apollo.ts',
-    './src/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './contexts/**/*.{ts,tsx}',
-    './screens/**/*.{ts,tsx}',
-    './graphql/**/*.{ts,tsx}',
-    './types/**/*.{ts,tsx}'
+    './src/**/*.{ts,tsx}'
   ],
   darkMode: 'class',
   theme: {

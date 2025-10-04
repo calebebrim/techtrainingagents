@@ -8,9 +8,16 @@ import './LoginScreen.css';
 const LoginScreen: React.FC = () => {
     const { login, loading } = useAuth();
     const [isRegisterModalOpen, setRegisterModalOpen] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const handleLogin = async () => {
-        await login();
+        try {
+            setErrorMessage(null);
+            await login();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to sign in with Google right now.';
+            setErrorMessage(message);
+        }
     };
 
     return (
@@ -68,6 +75,14 @@ const LoginScreen: React.FC = () => {
 
                             <div className="login-card rounded-2xl border border-gray-200 bg-white/90 p-8 shadow-xl backdrop-blur dark:border-gray-700 dark:bg-gray-900/80">
                                 <div className="space-y-4">
+                                    {errorMessage && (
+                                        <div
+                                            role="alert"
+                                            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-600 dark:bg-red-900/40 dark:text-red-200"
+                                        >
+                                            {errorMessage}
+                                        </div>
+                                    )}
                                     <button
                                         onClick={handleLogin}
                                         disabled={loading}
@@ -79,9 +94,10 @@ const LoginScreen: React.FC = () => {
                                         </span>
                                     </button>
                                     <button
-                                        onClick={handleLogin}
-                                        disabled={loading}
+                                        type="button"
+                                        disabled
                                         className="provider-btn provider-btn--github w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:-translate-y-[1px] hover:border-gray-900 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-400"
+                                        title="GitHub authentication is coming soon"
                                     >
                                         <span className="flex items-center justify-center gap-3">
                                             <GithubIcon className="h-6 w-6" />

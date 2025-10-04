@@ -93,7 +93,15 @@ const TOPICS = [
 
 module.exports = {
   async up(queryInterface) {
-    await queryInterface.bulkInsert('course_topics', TOPICS, {});
+    const isSqlite = queryInterface.sequelize.getDialect() === 'sqlite';
+    const payload = isSqlite
+      ? TOPICS.map((topic) => ({
+          ...topic,
+          dependencies: JSON.stringify(topic.dependencies ?? [])
+        }))
+      : TOPICS;
+
+    await queryInterface.bulkInsert('course_topics', payload, {});
   },
 
   async down(queryInterface) {

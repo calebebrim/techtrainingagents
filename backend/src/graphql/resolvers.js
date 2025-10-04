@@ -236,9 +236,7 @@ const resolvers = {
       }));
     },
 
-    me: async () => {
-      return User.findOne();
-    }
+    me: async (_parent, _args, { user }) => user
   },
 
   Mutation: {

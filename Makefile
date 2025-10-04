@@ -2,19 +2,26 @@ NPM ?= npm
 FRONTEND_DIR := frontend
 BACKEND_DIR := backend
 
+ENV_LOCAL_FILE := .env.local
+
+ifneq (,$(wildcard $(ENV_LOCAL_FILE)))
+include $(ENV_LOCAL_FILE)
+export $(shell sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' $(ENV_LOCAL_FILE))
+endif
+
 FRONTEND_BUILD_SCRIPT ?= build
 FRONTEND_DEV_SCRIPT ?= dev
 FRONTEND_PREVIEW_SCRIPT ?= preview
 BACKEND_BUILD_SCRIPT ?= build
 BACKEND_START_SCRIPT ?= start
 BACKEND_DEPLOY_SCRIPT ?= start
-BACKEND_URL=https://localhost:4000
+BACKEND_URL ?= http://localhost:4000
 
 .PHONY: install install-frontend install-backend \
         build build-frontend build-backend \
         deploy deploy-frontend deploy-backend \
         start start-frontend start-backend \
-        preview \
+        preview db-init \
         clean clean-frontend clean-backend
 
 install: install-frontend install-backend
@@ -44,10 +51,24 @@ deploy-backend: build-backend
 start: start-backend start-frontend
 
 start-frontend:
-	cd $(FRONTEND_DIR) && VITE_BACKEND_URL=$(BACKEND_URL) $(NPM) run $(FRONTEND_DEV_SCRIPT)
+	cd $(FRONTEND_DIR) && \
+	  VITE_BACKEND_URL=$(BACKEND_URL) \
+	  VITE_GOOGLE_CLIENT_ID=$(VITE_GOOGLE_CLIENT_ID) \
+	  VITE_ALLOWED_HOSTS=$(VITE_ALLOWED_HOSTS) \
+	  $(NPM) run $(FRONTEND_DEV_SCRIPT)
 
 start-backend:
-	cd $(BACKEND_DIR) && $(NPM) run $(BACKEND_START_SCRIPT)
+	cd $(BACKEND_DIR) && \
+	  GOOGLE_CLIENT_ID=$(GOOGLE_CLIENT_ID) \
+	  GOOGLE_CLIENT_SECRET=$(GOOGLE_CLIENT_SECRET) \
+	  AUTH_JWT_SECRET=$(AUTH_JWT_SECRET) \
+	  $(NPM) run $(BACKEND_START_SCRIPT)
+
+db-init:
+	@echo "Initializing SQLite database with migrations and seed data"
+	@rm -f $(BACKEND_DIR)/data/dev.sqlite
+	cd $(BACKEND_DIR) && NODE_ENV=development $(NPM) run migrate
+	cd $(BACKEND_DIR) && NODE_ENV=development $(NPM) run seed
 
 preview:
 	cd $(FRONTEND_DIR) && $(NPM) run $(FRONTEND_PREVIEW_SCRIPT)

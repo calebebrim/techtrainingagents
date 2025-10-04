@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SunIcon, MoonIcon, CogIcon, LogoutIcon, MenuIcon } from '../icons';
+import { getInitials } from '../../utils/avatar';
 
 const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) => {
     const { user, logout } = useAuth();
@@ -27,6 +28,8 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
         navigate('/login');
     };
 
+    const avatarInitials = getInitials(user?.name);
+
     return (
         <header className="flex items-center justify-between px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center">
@@ -42,7 +45,13 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
                 <div className="relative" ref={menuRef}>
                     <button onClick={() => setMenuOpen(!isMenuOpen)} className="flex items-center space-x-2 focus:outline-none">
                         <span className="text-gray-700 dark:text-gray-200 hidden md:block">{user?.name}</span>
-                        <img className="h-9 w-9 rounded-full object-cover" src={user?.avatarUrl} alt="User avatar" />
+                        {user?.avatarUrl ? (
+                            <img className="h-9 w-9 rounded-full object-cover" src={user.avatarUrl} alt="User avatar" />
+                        ) : (
+                            <div className="h-9 w-9 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold uppercase" aria-hidden="true">
+                                {avatarInitials}
+                            </div>
+                        )}
                     </button>
 
                     {isMenuOpen && (

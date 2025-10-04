@@ -57,7 +57,15 @@ const ENROLLMENTS = [
 
 module.exports = {
   async up(queryInterface) {
-    await queryInterface.bulkInsert('user_courses', ENROLLMENTS, {});
+    const isSqlite = queryInterface.sequelize.getDialect() === 'sqlite';
+    const payload = isSqlite
+      ? ENROLLMENTS.map((enrollment) => ({
+          ...enrollment,
+          topic_scores: JSON.stringify(enrollment.topic_scores ?? [])
+        }))
+      : ENROLLMENTS;
+
+    await queryInterface.bulkInsert('user_courses', payload, {});
   },
 
   async down(queryInterface) {

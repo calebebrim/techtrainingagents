@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getInitials } from '../utils/avatar';
 
 const AccountSettingsScreen: React.FC = () => {
     const { user } = useAuth();
@@ -12,7 +13,13 @@ const AccountSettingsScreen: React.FC = () => {
             <h1 className="text-3xl font-bold mb-6">Account Settings</h1>
             <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md space-y-6">
                 <div className="flex items-center space-x-4">
-                    <img src={user.avatarUrl} alt="User avatar" className="w-20 h-20 rounded-full" />
+                    {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt="User avatar" className="w-20 h-20 rounded-full object-cover" />
+                    ) : (
+                        <div className="w-20 h-20 rounded-full bg-primary-600 text-white flex items-center justify-center text-2xl font-semibold uppercase" aria-hidden="true">
+                            {getInitials(user.name)}
+                        </div>
+                    )}
                     <div>
                         <h2 className="text-2xl font-semibold">{user.name}</h2>
                         <p className="text-gray-500 dark:text-gray-400">{user.email}</p>
