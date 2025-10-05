@@ -61,7 +61,7 @@ const USERS = [
     name: 'Calebe Brim',
     email: 'calebebrim@gmail.com',
     avatar_url: null,
-    roles: ['Administrator'],
+    roles: ['System Admin'],
     groups_meta: [],
     status: 'ACTIVE',
     theme_preference: 'system',

@@ -1,5 +1,16 @@
 const { Op } = require('sequelize');
 const { Organization, User, Course, CourseTopic, UserCourse, Group, UserGroup } = require('../models');
+const {
+  Roles,
+  createError,
+  requireAuth,
+  requireSystemAdmin,
+  requireOrgMember,
+  requireOrgRoles,
+  ensureSameOrganization,
+  hasAnyRole,
+  isSystemAdmin
+} = require('../auth/permissions');
 
 const slugify = (value) =>
   value
@@ -105,9 +116,13 @@ const buildEnrollmentInclude = () => ([
 
 const resolvers = {
   Query: {
-    organizations: () => Organization.findAll({ order: [['name', 'ASC']] }),
+    organizations: (_parent, _args, context) => {
+      requireSystemAdmin(context);
+      return Organization.findAll({ order: [['name', 'ASC']] });
+    },
 
-    organization: (_, { id, slug }) => {
+    organization: async (_, { id, slug }, context) => {
+      const user = requireAuth(context);
       const where = {};
       if (id) {
         where.id = id;
@@ -115,12 +130,23 @@ const resolvers = {
       if (slug) {
         where.slug = slug;
       }
-      return Organization.findOne({ where });
+      const organization = await Organization.findOne({ where });
+      if (!organization) {
+        return null;
+      }
+      if (!isSystemAdmin(user)) {
+        ensureSameOrganization(user, organization.id);
+      }
+      return organization;
     },
 
-    courses: (_, { organizationId, search }) => {
+    courses: async (_, { organizationId, search }, context) => {
+      const user = requireOrgMember(context);
+      const resolvedOrganizationId = organizationId || user.organizationId;
+      ensureSameOrganization(user, resolvedOrganizationId);
+
       const where = {
-        organizationId
+        organizationId: resolvedOrganizationId
       };
 
       if (search) {
@@ -140,21 +166,60 @@ const resolvers = {
       });
     },
 
-    course: (_, { id }) => Course.findByPk(id),
+    course: async (_, { id }, context) => {
+      const user = requireOrgMember(context);
+      const course = await Course.findByPk(id);
+      if (!course) {
+        return null;
+      }
+      ensureSameOrganization(user, course.organizationId);
+      return course;
+    },
 
-    users: (_, { organizationId }) => User.findAll({
-      where: { organizationId },
-      order: [['name', 'ASC']]
-    }),
+    users: async (_, { organizationId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const resolvedOrganizationId = organizationId || user.organizationId;
+      ensureSameOrganization(user, resolvedOrganizationId);
+      return User.findAll({
+        where: { organizationId: resolvedOrganizationId },
+        order: [['name', 'ASC']]
+      });
+    },
 
-    user: (_, { id }) => User.findByPk(id),
+    user: async (_, { id }, context) => {
+      const requester = requireAuth(context);
+      if (requester.id === id) {
+        return User.findByPk(id);
+      }
+      if (isSystemAdmin(requester)) {
+        return User.findByPk(id);
+      }
+      if (!hasAnyRole(requester, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR])) {
+        throw createError('You do not have permission to view this user.', 'FORBIDDEN');
+      }
+      const targetUser = await User.findByPk(id);
+      if (!targetUser) {
+        return null;
+      }
+      ensureSameOrganization(requester, targetUser.organizationId);
+      return targetUser;
+    },
 
-    groups: (_, { organizationId }) => Group.findAll({
-      where: { organizationId },
-      order: [['name', 'ASC']]
-    }),
+    groups: async (_, { organizationId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const resolvedOrganizationId = organizationId || user.organizationId;
+      ensureSameOrganization(user, resolvedOrganizationId);
+      return Group.findAll({
+        where: { organizationId: resolvedOrganizationId },
+        order: [['name', 'ASC']]
+      });
+    },
 
-    enrollments: async (_, { organizationId, courseId, userId }) => {
+    enrollments: async (_, { organizationId, courseId, userId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const resolvedOrganizationId = organizationId || user.organizationId;
+      ensureSameOrganization(user, resolvedOrganizationId);
+
       const where = {};
       if (courseId) {
         where.courseId = courseId;
@@ -164,11 +229,8 @@ const resolvers = {
       }
 
       const include = buildEnrollmentInclude();
-
-      if (organizationId) {
-        include[1].where = { organizationId };
-        include[1].required = true;
-      }
+      include[1].where = { organizationId: resolvedOrganizationId };
+      include[1].required = true;
 
       return UserCourse.findAll({
         where,
@@ -176,15 +238,19 @@ const resolvers = {
       });
     },
 
-    organizationDashboard: async (_, { organizationId }) => {
-      const organization = await Organization.findByPk(organizationId);
+    organizationDashboard: async (_, { organizationId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const resolvedOrganizationId = organizationId || user.organizationId;
+      ensureSameOrganization(user, resolvedOrganizationId);
+
+      const organization = await Organization.findByPk(resolvedOrganizationId);
       if (!organization) {
-        throw new Error('Organization not found');
+        throw createError('Organization not found', 'NOT_FOUND');
       }
 
       const [users, courses] = await Promise.all([
-        User.findAll({ where: { organizationId } }),
-        Course.findAll({ where: { organizationId } })
+        User.findAll({ where: { organizationId: resolvedOrganizationId } }),
+        Course.findAll({ where: { organizationId: resolvedOrganizationId } })
       ]);
 
       const stats = [];
@@ -217,10 +283,14 @@ const resolvers = {
       };
     },
 
-    employeeCourseScores: async (_, { organizationId, courseId }) => {
+    employeeCourseScores: async (_, { organizationId, courseId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const resolvedOrganizationId = organizationId || user.organizationId;
+      ensureSameOrganization(user, resolvedOrganizationId);
+
       const include = buildEnrollmentInclude();
       include[1].where = {
-        organizationId,
+        organizationId: resolvedOrganizationId,
         ...(courseId ? { id: courseId } : {})
       };
       include[1].required = true;
@@ -236,11 +306,12 @@ const resolvers = {
       }));
     },
 
-    me: async (_parent, _args, { user }) => user
+    me: (_parent, _args, context) => requireAuth(context)
   },
 
   Mutation: {
-    createOrganization: async (_, { input }) => {
+    createOrganization: async (_, { input }, context) => {
+      requireSystemAdmin(context);
       const organization = await Organization.create({
         name: input.name,
         slug: input.slug || slugify(input.name),
@@ -252,9 +323,12 @@ const resolvers = {
       return organization;
     },
 
-    createCourse: async (_, { input }) => {
+    createCourse: async (_, { input }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const organizationId = input.organizationId || user.organizationId;
+      ensureSameOrganization(user, organizationId);
       const course = await Course.create({
-        organizationId: input.organizationId,
+        organizationId,
         title: input.title,
         description: input.description,
         thumbnailUrl: input.thumbnailUrl,
@@ -266,7 +340,13 @@ const resolvers = {
       return course;
     },
 
-    addCourseTopic: async (_, { input }) => {
+    addCourseTopic: async (_, { input }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const course = await Course.findByPk(input.courseId);
+      if (!course) {
+        throw createError('Course not found', 'NOT_FOUND');
+      }
+      ensureSameOrganization(user, course.organizationId);
       const topic = await CourseTopic.create({
         courseId: input.courseId,
         name: input.name,
@@ -278,7 +358,24 @@ const resolvers = {
       return topic;
     },
 
-    enrollUser: async (_, { input }) => {
+    enrollUser: async (_, { input }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const targetUser = await User.findByPk(input.userId);
+      if (!targetUser) {
+        throw createError('User not found', 'NOT_FOUND');
+      }
+      ensureSameOrganization(user, targetUser.organizationId);
+
+      const course = await Course.findByPk(input.courseId);
+      if (!course) {
+        throw createError('Course not found', 'NOT_FOUND');
+      }
+      ensureSameOrganization(user, course.organizationId);
+
+      if (course.organizationId !== targetUser.organizationId) {
+        throw createError('User and course must belong to the same organization.', 'FORBIDDEN');
+      }
+
       const [enrollment] = await UserCourse.findOrCreate({
         where: {
           userId: input.userId,
@@ -286,7 +383,7 @@ const resolvers = {
         },
         defaults: {
           status: input.status || 'IN_PROGRESS',
-          progress: typeof input.progress === 'number' ? input.progress : 0,
+          progress: typeof input.progress === 'number' ? Math.max(0, Math.min(1, input.progress)) : 0,
           score: input.score ?? null
         },
         include: buildEnrollmentInclude()
@@ -297,11 +394,26 @@ const resolvers = {
       });
     },
 
-    updateEnrollmentScore: async (_, { enrollmentId, progress, score, topicScores }) => {
-      const enrollment = await UserCourse.findByPk(enrollmentId);
+    updateEnrollmentScore: async (_, { enrollmentId, progress, score, topicScores }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
+      const enrollment = await UserCourse.findByPk(enrollmentId, {
+        include: buildEnrollmentInclude()
+      });
       if (!enrollment) {
-        throw new Error('Enrollment not found');
+        throw createError('Enrollment not found', 'NOT_FOUND');
       }
+
+      const courseOrganizationId = enrollment.course?.organizationId;
+      if (courseOrganizationId) {
+        ensureSameOrganization(user, courseOrganizationId);
+      } else {
+        const course = await Course.findByPk(enrollment.courseId);
+        if (!course) {
+          throw createError('Course not found', 'NOT_FOUND');
+        }
+        ensureSameOrganization(user, course.organizationId);
+      }
+
       const updates = {};
       if (typeof progress === 'number') {
         updates.progress = Math.max(0, Math.min(1, progress));
@@ -324,9 +436,12 @@ const resolvers = {
       });
     },
 
-    createGroup: async (_, { input }) => {
+    createGroup: async (_, { input }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN]);
+      const organizationId = input.organizationId || user.organizationId;
+      ensureSameOrganization(user, organizationId);
       const group = await Group.create({
-        organizationId: input.organizationId,
+        organizationId,
         name: input.name,
         description: input.description,
         isSystem: false
@@ -334,7 +449,22 @@ const resolvers = {
       return group;
     },
 
-    assignUserToGroup: async (_, { userId, groupId }) => {
+    assignUserToGroup: async (_, { userId, groupId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN]);
+      const group = await Group.findByPk(groupId);
+      if (!group) {
+        throw createError('Group not found', 'NOT_FOUND');
+      }
+      ensureSameOrganization(user, group.organizationId);
+
+      const targetUser = await User.findByPk(userId);
+      if (!targetUser) {
+        throw createError('User not found', 'NOT_FOUND');
+      }
+      if (targetUser.organizationId !== group.organizationId) {
+        throw createError('Cannot assign users from another organization to this group.', 'FORBIDDEN');
+      }
+
       await UserGroup.findOrCreate({
         where: { userId, groupId },
         defaults: { userId, groupId }
@@ -342,7 +472,19 @@ const resolvers = {
       return Group.findByPk(groupId);
     },
 
-    removeUserFromGroup: async (_, { userId, groupId }) => {
+    removeUserFromGroup: async (_, { userId, groupId }, context) => {
+      const user = requireOrgRoles(context, [Roles.ORG_ADMIN]);
+      const group = await Group.findByPk(groupId);
+      if (!group) {
+        throw createError('Group not found', 'NOT_FOUND');
+      }
+      ensureSameOrganization(user, group.organizationId);
+
+      const targetUser = await User.findByPk(userId);
+      if (targetUser && targetUser.organizationId !== group.organizationId) {
+        throw createError('Cannot remove users from another organization.', 'FORBIDDEN');
+      }
+
       const deleted = await UserGroup.destroy({
         where: { userId, groupId }
       });

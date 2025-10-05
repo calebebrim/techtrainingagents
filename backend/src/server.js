@@ -14,6 +14,8 @@ const typeDefs = require('./graphql/typeDefs');
 const resolvers = require('./graphql/resolvers');
 const models = require('./models');
 
+const { ensureArray, Roles } = require('./auth/permissions');
+
 const registerEnvFiles = () => {
   dotenv.config();
   const localEnv = path.resolve(__dirname, '../../.env.local');
@@ -45,6 +47,7 @@ const bootstrap = async () => {
 
   const loadUserFromRequest = async (req) => {
     const authHeader = req.headers.authorization;
+    let authUser = null;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
       try {
@@ -52,7 +55,7 @@ const bootstrap = async () => {
         if (decoded && decoded.userId) {
           const user = await models.User.findByPk(decoded.userId, { include: userInclude });
           if (user) {
-            return user;
+            authUser = user;
           }
         }
       } catch (error) {
@@ -64,11 +67,63 @@ const bootstrap = async () => {
     if (userId) {
       const fallbackUser = await models.User.findByPk(userId, { include: userInclude });
       if (fallbackUser) {
-        return fallbackUser;
+        authUser = fallbackUser;
       }
     }
 
-    return null;
+    if (!authUser) {
+      return { user: null, authUser: null, isImpersonating: false };
+    }
+
+    let effectiveUser = authUser;
+    let isImpersonating = false;
+
+    const authUserRoles = ensureArray(authUser.roles);
+    const isSysAdmin = authUserRoles.includes(Roles.SYS_ADMIN);
+
+    const impersonateUserId = req.headers['x-impersonate-user-id']
+      ? String(req.headers['x-impersonate-user-id']).trim()
+      : '';
+    const impersonateUserEmailRaw = req.headers['x-impersonate-user-email']
+      ? String(req.headers['x-impersonate-user-email']).trim()
+      : '';
+
+    if (isSysAdmin && (impersonateUserId || impersonateUserEmailRaw)) {
+      try {
+        let impersonatedUser = null;
+        if (impersonateUserId) {
+          impersonatedUser = await models.User.findByPk(impersonateUserId, { include: userInclude });
+        } else if (impersonateUserEmailRaw) {
+          const impersonateUserEmail = impersonateUserEmailRaw.toLowerCase();
+          impersonatedUser = await models.User.findOne({
+            where: models.sequelize.where(
+              models.sequelize.fn('lower', models.sequelize.col('email')),
+              impersonateUserEmail
+            ),
+            include: userInclude
+          });
+        }
+
+        if (impersonatedUser) {
+          effectiveUser = impersonatedUser;
+          isImpersonating = effectiveUser.id !== authUser.id;
+        }
+      } catch (error) {
+        console.warn('Failed to impersonate user', {
+          requestedId: impersonateUserId || null,
+          requestedEmail: impersonateUserEmailRaw || null,
+          error
+        });
+      }
+    } else if (!isSysAdmin && (impersonateUserId || impersonateUserEmailRaw)) {
+      console.warn('Non-system admin attempted to impersonate another user.', {
+        userId: authUser.id,
+        requestedId: impersonateUserId || null,
+        requestedEmail: impersonateUserEmailRaw || null
+      });
+    }
+
+    return { user: effectiveUser, authUser, isImpersonating };
   };
 
   const server = new ApolloServer({
@@ -95,9 +150,11 @@ const bootstrap = async () => {
     '/graphql',
     expressMiddleware(server, {
       context: async ({ req }) => {
-        const user = await loadUserFromRequest(req);
+        const { user, authUser, isImpersonating } = await loadUserFromRequest(req);
         return {
           user,
+          authUser,
+          isImpersonating,
           models
         };
       }

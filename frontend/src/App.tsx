@@ -19,9 +19,19 @@ import SystemPermissionsScreen from './screens/system/SystemPermissionsScreen';
 import AccountSettingsScreen from './screens/AccountSettingsScreen';
 import { ApolloProvider } from '@apollo/client/react';
 import client from './apollo';
+import { UserRole } from './types';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
+
+    const isSystemAdmin = user?.roles.includes(UserRole.SYSTEM_ADMIN) ?? false;
+    const hasOrganizationAccess = !isSystemAdmin;
+    const hasManagementAccess = hasOrganizationAccess && user?.roles.some(role => [UserRole.ORG_ADMIN, UserRole.COURSE_COORDINATOR].includes(role));
+    const hasSystemAccess = isSystemAdmin;
+    const defaultPath = isSystemAdmin ? '/system/organizations' : '/';
+
+    const guard = (allowed: boolean, element: React.ReactElement) =>
+        allowed ? element : <Navigate to={defaultPath} replace />;
 
     if (loading) {
         return (
@@ -43,23 +53,23 @@ const AppRoutes: React.FC = () => {
     return (
         <MainLayout>
             <Routes>
-                <Route path="/" element={<OrgHomeScreen />} />
-                <Route path="/search" element={<SearchScreen />} />
-                <Route path="/my-courses" element={<UserCoursesScreen />} />
-                <Route path="/my-paths" element={<UserLearningPathsScreen />} />
-                <Route path="/my-certificates" element={<UserCertificatesScreen />} />
-                
-                <Route path="/manage" element={<MgmtHomeScreen />} />
-                <Route path="/manage/course-scores" element={<MgmtCourseScoresScreen />} />
-                <Route path="/manage/employee-scores" element={<MgmtEmployeeScoresScreen />} />
-                <Route path="/manage/permissions" element={<MgmtPermissionsScreen />} />
+                <Route path="/" element={guard(hasOrganizationAccess, <OrgHomeScreen />)} />
+                <Route path="/search" element={guard(hasOrganizationAccess, <SearchScreen />)} />
+                <Route path="/my-courses" element={guard(hasOrganizationAccess, <UserCoursesScreen />)} />
+                <Route path="/my-paths" element={guard(hasOrganizationAccess, <UserLearningPathsScreen />)} />
+                <Route path="/my-certificates" element={guard(hasOrganizationAccess, <UserCertificatesScreen />)} />
 
-                <Route path="/system/organizations" element={<SystemOrganizationsScreen />} />
-                <Route path="/system/permissions" element={<SystemPermissionsScreen />} />
+                <Route path="/manage" element={guard(hasManagementAccess, <MgmtHomeScreen />)} />
+                <Route path="/manage/course-scores" element={guard(hasManagementAccess, <MgmtCourseScoresScreen />)} />
+                <Route path="/manage/employee-scores" element={guard(hasManagementAccess, <MgmtEmployeeScoresScreen />)} />
+                <Route path="/manage/permissions" element={guard(hasManagementAccess, <MgmtPermissionsScreen />)} />
+
+                <Route path="/system/organizations" element={guard(hasSystemAccess, <SystemOrganizationsScreen />)} />
+                <Route path="/system/permissions" element={guard(hasSystemAccess, <SystemPermissionsScreen />)} />
 
                 <Route path="/account-settings" element={<AccountSettingsScreen />} />
 
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<Navigate to={defaultPath} replace />} />
             </Routes>
         </MainLayout>
     );

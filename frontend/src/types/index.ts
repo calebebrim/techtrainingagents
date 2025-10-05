@@ -1,9 +1,9 @@
 
 export enum UserRole {
     SYSTEM_ADMIN = 'System Admin',
-    ADMIN = 'Administrator',
-    TECHNICAL_STAFF = 'Technical Staff',
+    ORG_ADMIN = 'Administrator',
     COURSE_COORDINATOR = 'Course Coordinator',
+    COLLABORATOR = 'Technical Staff',
 }
 
 export interface User {
