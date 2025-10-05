@@ -10,6 +10,7 @@ import {
     ChevronRightIcon,
 } from '../../components/icons';
 import { roleLabels } from './systemPermissionsTypes';
+import { useTranslation } from 'react-i18next';
 
 const SYSTEM_ORGANIZATION_QUERY = gql`
     query SystemOrganization($id: ID!) {
@@ -83,6 +84,7 @@ const toTitleCase = (value?: string | null) => {
 const SystemOrganizationDetailScreen: React.FC = () => {
     const navigate = useNavigate();
     const { organizationId } = useParams<{ organizationId: string }>();
+    const { t } = useTranslation();
 
     const { data, loading, error } = useQuery<SystemOrganizationDetailData>(SYSTEM_ORGANIZATION_QUERY, {
         skip: !organizationId,
@@ -91,6 +93,14 @@ const SystemOrganizationDetailScreen: React.FC = () => {
     });
 
     const organization = data?.organization ?? null;
+
+    const planLabel = useMemo(() => {
+        if (!organization?.plan) {
+            return '—';
+        }
+        const key = organization.plan.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        return t(`systemOrganizations.plan.${key}`, { defaultValue: toTitleCase(organization.plan) });
+    }, [organization?.plan, t]);
 
     const metrics = useMemo(() => {
         if (!organization) {
@@ -122,11 +132,21 @@ const SystemOrganizationDetailScreen: React.FC = () => {
 
     const isInitialLoading = loading && !organization;
 
+    const formatStatusLabel = (status: string) => {
+        const normalized = status.toLowerCase();
+        return t(`systemOrganizationDetail.statuses.${normalized}`, { defaultValue: toTitleCase(status) });
+    };
+
+    const formatCourseStatus = (status: string) => {
+        const normalized = status.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        return t(`systemOrganizationDetail.courseStatus.${normalized}`, { defaultValue: toTitleCase(status) });
+    };
+
     return (
         <div className="space-y-10">
             {isInitialLoading && (
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                    Loading tenant insights…
+                    {t('systemOrganizationDetail.loading')}
                 </div>
             )}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -136,23 +156,23 @@ const SystemOrganizationDetailScreen: React.FC = () => {
                         onClick={() => navigate('/system/organizations')}
                         className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:text-primary-500"
                     >
-                        ← Back to organizations
+                        ← {t('systemOrganizationDetail.back')}
                     </button>
-                    <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">{organization?.name ?? 'Organization'}</h1>
+                    <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">{organization?.name ?? t('systemOrganizationDetail.defaultTitle')}</h1>
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        {organization?.description || 'Investigate tenant health, adoption, and privileged access.'}
+                        {organization?.description || t('systemOrganizationDetail.defaultDescription')}
                     </p>
                 </div>
                 {organization && (
                     <div className="flex flex-wrap gap-3 text-sm text-gray-500 dark:text-gray-400">
                         <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-gray-700">
-                            Plan: <strong className="ml-1 text-gray-900 dark:text-gray-200">{toTitleCase(organization.plan)}</strong>
+                            {t('systemOrganizationDetail.badges.plan')}: <strong className="ml-1 text-gray-900 dark:text-gray-200">{planLabel}</strong>
                         </span>
                         <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-gray-700">
-                            Domain: <strong className="ml-1 text-gray-900 dark:text-gray-200">{organization.domain || '—'}</strong>
+                            {t('systemOrganizationDetail.badges.domain')}: <strong className="ml-1 text-gray-900 dark:text-gray-200">{organization.domain || '—'}</strong>
                         </span>
                         <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-gray-700">
-                            CNPJ: <strong className="ml-1 text-gray-900 dark:text-gray-200">{organization.cnpj || '—'}</strong>
+                            {t('systemOrganizationDetail.badges.cnpj')}: <strong className="ml-1 text-gray-900 dark:text-gray-200">{organization.cnpj || '—'}</strong>
                         </span>
                     </div>
                 )}
@@ -160,69 +180,69 @@ const SystemOrganizationDetailScreen: React.FC = () => {
 
             {error && (
                 <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200">
-                    Unable to load the latest snapshot. Showing cached data when possible.
+                    {t('systemOrganizationDetail.notices.snapshotError')}
                 </div>
             )}
 
             {!loading && !organization && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-                    This organization could not be found. It may have been removed or you no longer have access.
+                    {t('systemOrganizationDetail.notices.missing')}
                 </div>
             )}
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
                     icon={<OfficeBuildingIcon className="h-5 w-5" />}
-                    label="Employees"
+                    label={t('systemOrganizationDetail.metrics.employees.label')}
                     value={metrics.totalEmployees.toLocaleString()}
-                    description="Total active learner accounts"
+                    description={t('systemOrganizationDetail.metrics.employees.description')}
                 />
                 <MetricCard
                     icon={<ShieldCheckIcon className="h-5 w-5" />}
-                    label="Privileged seats"
+                    label={t('systemOrganizationDetail.metrics.privileged.label')}
                     value={metrics.privilegedSeats.toString()}
-                    description="Org admins and elevated roles"
+                    description={t('systemOrganizationDetail.metrics.privileged.description')}
                 />
                 <MetricCard
                     icon={<ChartBarIcon className="h-5 w-5" />}
-                    label="Active courses"
+                    label={t('systemOrganizationDetail.metrics.courses.label')}
                     value={metrics.activeCourses.toString()}
-                    description="Published learning modules"
+                    description={t('systemOrganizationDetail.metrics.courses.description')}
                 />
                 <MetricCard
                     icon={<UserGroupIcon className="h-5 w-5" />}
-                    label="Avg. score"
+                    label={t('systemOrganizationDetail.metrics.averageScore.label')}
                     value={typeof metrics.averageScore === 'number' ? `${Math.round(metrics.averageScore)}%` : '—'}
-                    description="Latest performance index"
+                    description={t('systemOrganizationDetail.metrics.averageScore.description')}
                 />
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent courses</h2>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Snapshot of published courses and completion trends.</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('systemOrganizationDetail.courses.title')}</h2>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('systemOrganizationDetail.courses.description')}</p>
                     <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
                         <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-gray-800">
                             <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                                 <tr>
-                                    <th className="px-4 py-3">Course</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3 text-right">Avg. score</th>
-                                    <th className="px-4 py-3 text-right">Completion</th>
+                                    <th className="px-4 py-3">{t('systemOrganizationDetail.courses.columns.course')}</th>
+                                    <th className="px-4 py-3">{t('systemOrganizationDetail.courses.columns.status')}</th>
+                                    <th className="px-4 py-3 text-right">{t('systemOrganizationDetail.courses.columns.avgScore')}</th>
+                                    <th className="px-4 py-3 text-right">{t('systemOrganizationDetail.courses.columns.completion')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                                 {loading && (
                                     <tr>
                                         <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                                            Loading course insights…
+                                            {t('systemOrganizationDetail.courses.loading')}
                                         </td>
                                     </tr>
                                 )}
                                 {!loading && organization?.courses?.length === 0 && (
                                     <tr>
                                         <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                                            No courses have been published yet.
+                                            {t('systemOrganizationDetail.courses.empty')}
                                         </td>
                                     </tr>
                                 )}
@@ -231,11 +251,11 @@ const SystemOrganizationDetailScreen: React.FC = () => {
                                         <td className="px-4 py-3">
                                             <div className="flex flex-col">
                                                 <span className="font-medium text-gray-900 dark:text-gray-100">{course.title}</span>
-                                                <span className="text-xs text-gray-400 dark:text-gray-500">ID: {course.id.slice(0, 8)}</span>
+                                                <span className="text-xs text-gray-400 dark:text-gray-500">{t('systemOrganizationDetail.courses.idLabel', { value: course.id.slice(0, 8) })}</span>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                            {toTitleCase(course.status)}
+                                            {formatCourseStatus(course.status)}
                                         </td>
                                         <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                                             {typeof course.averageScore === 'number' ? `${Math.round(course.averageScore)}%` : '—'}
@@ -251,8 +271,8 @@ const SystemOrganizationDetailScreen: React.FC = () => {
                 </div>
 
                 <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Privileged roles overview</h2>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Understand how elevated access is distributed.</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('systemOrganizationDetail.privilegedRoles.title')}</h2>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('systemOrganizationDetail.privilegedRoles.description')}</p>
                     <div className="mt-4 space-y-3">
                         {['SYSTEM_ADMIN', 'ORG_ADMIN', 'COURSE_COORDINATOR'].map(role => {
                             const usersWithRole = organization?.users?.filter(user => (user.roles ?? []).includes(role)) ?? [];
@@ -265,20 +285,23 @@ const SystemOrganizationDetailScreen: React.FC = () => {
                             return (
                                 <div key={role} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{roleLabels[role as keyof typeof roleLabels]}</span>
+                                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t(`systemPermissions.roles.${role}`, { defaultValue: roleLabels[role as keyof typeof roleLabels] })}</span>
                                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                                            {usersWithRole.length} members
+                                            {t('systemOrganizationDetail.privilegedRoles.members', { count: usersWithRole.length })}
                                         </span>
                                     </div>
                                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                                         {Object.entries(statusCounts).map(([status, count]) => (
                                             <span key={status} className="rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-700/60">
-                                                {status}: {count}
+                                                {t('systemOrganizationDetail.privilegedRoles.statusChip', {
+                                                    status: formatStatusLabel(status),
+                                                    count,
+                                                })}
                                             </span>
                                         ))}
                                         {usersWithRole.length === 0 && (
                                             <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-400 dark:bg-gray-700/60 dark:text-gray-500">
-                                                No members assigned
+                                                {t('systemOrganizationDetail.privilegedRoles.none')}
                                             </span>
                                         )}
                                     </div>

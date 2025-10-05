@@ -6,6 +6,7 @@ import Modal from '../../components/common/Modal';
 import TopicGraph from '../../components/common/TopicGraph';
 import { ORGANIZATION_DASHBOARD_QUERY } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface CourseStatsQueryData {
     organizationDashboard: {
@@ -36,6 +37,7 @@ interface CourseStatsQueryData {
 const MgmtCourseScoresScreen: React.FC = () => {
     const { user } = useAuth();
     const organizationId = user?.organizationId;
+    const { t } = useTranslation();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCourse, setSelectedCourse] = useState<CourseStats | null>(null);
@@ -79,8 +81,8 @@ const MgmtCourseScoresScreen: React.FC = () => {
     if (!organizationId) {
         return (
             <div className="container mx-auto">
-                <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
-                <p className="text-gray-600 dark:text-gray-400">Select an organization to view course analytics.</p>
+                <h1 className="text-3xl font-bold mb-6">{t('navigation.management.courseScores.title')}</h1>
+                <p className="text-gray-600 dark:text-gray-400">{t('navigation.management.courseScores.selectOrg')}</p>
             </div>
         );
     }
@@ -88,8 +90,8 @@ const MgmtCourseScoresScreen: React.FC = () => {
     if (loading) {
         return (
             <div className="container mx-auto">
-                <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
-                <p className="text-gray-600 dark:text-gray-400">Loading course analytics...</p>
+                <h1 className="text-3xl font-bold mb-6">{t('navigation.management.courseScores.title')}</h1>
+                <p className="text-gray-600 dark:text-gray-400">{t('navigation.management.courseScores.loading')}</p>
             </div>
         );
     }
@@ -97,19 +99,19 @@ const MgmtCourseScoresScreen: React.FC = () => {
     if (error) {
         return (
             <div className="container mx-auto">
-                <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
-                <p className="text-red-600">Failed to load course data: {error.message}</p>
+                <h1 className="text-3xl font-bold mb-6">{t('navigation.management.courseScores.title')}</h1>
+                <p className="text-red-600">{t('navigation.management.courseScores.error', { message: error.message })}</p>
             </div>
         );
     }
 
     return (
         <div className="container mx-auto">
-            <h1 className="text-3xl font-bold mb-6">Course Scores</h1>
+            <h1 className="text-3xl font-bold mb-6">{t('navigation.management.courseScores.title')}</h1>
             <div className="relative mb-6">
                 <input
                     type="text"
-                    placeholder="Search for a course..."
+                    placeholder={t('navigation.management.courseScores.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full p-3 pl-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500"
@@ -123,10 +125,10 @@ const MgmtCourseScoresScreen: React.FC = () => {
                  <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Course Name</th>
-                            <th scope="col" className="px-6 py-3">Avg. Score</th>
-                            <th scope="col" className="px-6 py-3">Enrolled</th>
-                            <th scope="col" className="px-6 py-3">Completion</th>
+                            <th scope="col" className="px-6 py-3">{t('navigation.management.courseScores.table.course')}</th>
+                            <th scope="col" className="px-6 py-3">{t('navigation.management.courseScores.table.averageScore')}</th>
+                            <th scope="col" className="px-6 py-3">{t('navigation.management.courseScores.table.enrolled')}</th>
+                            <th scope="col" className="px-6 py-3">{t('navigation.management.courseScores.table.completion')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -141,7 +143,7 @@ const MgmtCourseScoresScreen: React.FC = () => {
                         {filteredCourses.length === 0 && (
                             <tr>
                                 <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                                    No courses match your search.
+                                    {t('navigation.management.courseScores.empty')}
                                 </td>
                             </tr>
                         )}
@@ -150,32 +152,32 @@ const MgmtCourseScoresScreen: React.FC = () => {
             </div>
 
             {selectedCourse && (
-                <Modal isOpen={!!selectedCourse} onClose={() => setSelectedCourse(null)} title={`${selectedCourse.courseName} Statistics`}>
+                <Modal isOpen={!!selectedCourse} onClose={() => setSelectedCourse(null)} title={t('navigation.management.courseScores.modal.title', { course: selectedCourse.courseName })}>
                    <div className="space-y-6">
                         <div>
-                            <h3 className="text-lg font-semibold mb-2">Topic Dependency Graph</h3>
+                            <h3 className="text-lg font-semibold mb-2">{t('navigation.management.courseScores.modal.topics')}</h3>
                             <TopicGraph topics={selectedCourse.topics} />
                         </div>
                         <div>
-                             <h3 className="text-lg font-semibold mb-2">Enrolled Collaborators</h3>
+                             <h3 className="text-lg font-semibold mb-2">{t('navigation.management.courseScores.modal.enrolled')}</h3>
                              <div className="max-h-60 overflow-y-auto border dark:border-gray-700 rounded-lg">
                                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0">
                                         <tr>
-                                            <th scope="col" className="px-6 py-3">Collaborator</th>
-                                            <th scope="col" className="px-6 py-3">Score</th>
+                                            <th scope="col" className="px-6 py-3">{t('navigation.management.courseScores.modal.collaborator')}</th>
+                                            <th scope="col" className="px-6 py-3">{t('navigation.management.courseScores.modal.score')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                         {selectedCourse.employees.map(emp => (
                                             <tr key={emp.userId} className="hover:bg-gray-50 dark:hover:bg-gray-600">
                                                 <td className="px-6 py-4 font-medium">{emp.userName}</td>
-                                                <td className="px-6 py-4">{emp.score >= 0 ? `${emp.score}%` : 'Not Attempted'}</td>
+                                                <td className="px-6 py-4">{emp.score >= 0 ? `${emp.score}%` : t('navigation.management.courseScores.modal.notAttempted')}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                                {selectedCourse.employees.length === 0 && <p className="p-4 text-center">No collaborators enrolled yet.</p>}
+                                {selectedCourse.employees.length === 0 && <p className="p-4 text-center">{t('navigation.management.courseScores.modal.none')}</p>}
                             </div>
                         </div>
                    </div>
