@@ -79,6 +79,20 @@ Telas:
           - Acesso administrativo do Sistema
           - Permitir alterações modificar todos os usuários do sistema. 
           - View Gestão de organizações
+        Gestão de organizações:
+          - Listar organizações
+            - modal cliente: 
+                - visualizar metodos de pagamento
+                - visualizar histórico de pagamento (lista)
+                - visualizar plano
+        Gestão de planos:
+          - Listar planos. 
+          - Criar novos planos. 
+          - Desabilitar planos. 
+          - Visualizar plano (modal)
+            - estatística de organizações no plano
+            - estatística de quantidade de usuários
+            - estatística de total de entradas. 
           
 
   Tela de login:
@@ -89,5 +103,23 @@ Telas:
         - A institução deverá ser criada no sistema através do email institucional do administrador do sistema
         - Ao criar a instituição o administrador deverá informar o CNPJ e os dados do cartão do crédito para completar o cadastro. 
       
-        
+# Controle de Acesso
+
+Grupos de usuário:
+  SysAdmin: 
+    - Acesso a todas as configurações do sistema. 
+    - Não deve ter o acesso as telas da organização. 
+    - Visualizar status de pagamento. 
+    - No dashboard 
+  Admnistrador da Organização:
+    - Acesso as telas de configuração de usuário e permissão da organização. 
+    - Acesso aos sumários da organização
+    - Visualização dos scores por curso
+    - Visualização dos scores por colaborador.
+    - Associar colaborador a grupo de usuário. 
+    - Associar curso ou learning path ao grupo.  
+  Colaborador: 
+    - Acesso a sua home com os seus sumários e pendências. 
+    - Acesso aos Cursos, e Learning Paths
+    - Acesso ao seus certificados
         
