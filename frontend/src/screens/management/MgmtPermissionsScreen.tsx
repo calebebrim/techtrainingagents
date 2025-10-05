@@ -3,6 +3,7 @@ import { useQuery } from '@apollo/client/react';
 import { UserRole, User, UserGroup } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { ORGANIZATION_GROUPS_QUERY, ORGANIZATION_USERS_QUERY } from '../../graphql/queries';
+import { useTranslation } from 'react-i18next';
 
 interface GroupsQueryData {
     groups: Array<{
@@ -27,6 +28,7 @@ interface UsersQueryData {
 const MgmtPermissionsScreen: React.FC = () => {
     const { user } = useAuth();
     const organizationId = user?.organizationId;
+    const { t } = useTranslation();
 
     const {
         data: groupsData,
@@ -77,8 +79,8 @@ const MgmtPermissionsScreen: React.FC = () => {
     if (!organizationId) {
         return (
             <div className="container mx-auto space-y-8">
-                <h1 className="text-3xl font-bold">User Permissions</h1>
-                <p className="text-gray-600 dark:text-gray-400">Select an organization to manage permissions.</p>
+                <h1 className="text-3xl font-bold">{t('navigation.management.permissions.title')}</h1>
+                <p className="text-gray-600 dark:text-gray-400">{t('navigation.management.permissions.selectOrg')}</p>
             </div>
         );
     }
@@ -86,8 +88,8 @@ const MgmtPermissionsScreen: React.FC = () => {
     if (groupsLoading || usersLoading) {
         return (
             <div className="container mx-auto space-y-8">
-                <h1 className="text-3xl font-bold">User Permissions</h1>
-                <p className="text-gray-600 dark:text-gray-400">Loading permissions data...</p>
+                <h1 className="text-3xl font-bold">{t('navigation.management.permissions.title')}</h1>
+                <p className="text-gray-600 dark:text-gray-400">{t('navigation.management.permissions.loading')}</p>
             </div>
         );
     }
@@ -96,34 +98,34 @@ const MgmtPermissionsScreen: React.FC = () => {
         const message = groupsError?.message ?? usersError?.message ?? 'Unknown error';
         return (
             <div className="container mx-auto space-y-8">
-                <h1 className="text-3xl font-bold">User Permissions</h1>
-                <p className="text-red-600">Failed to load permissions: {message}</p>
+                <h1 className="text-3xl font-bold">{t('navigation.management.permissions.title')}</h1>
+                <p className="text-red-600">{t('navigation.management.permissions.error', { message })}</p>
             </div>
         );
     }
 
     return (
         <div className="container mx-auto space-y-8">
-            <h1 className="text-3xl font-bold">User Permissions</h1>
+            <h1 className="text-3xl font-bold">{t('navigation.management.permissions.title')}</h1>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1">
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-semibold">Groups</h2>
+                            <h2 className="text-xl font-semibold">{t('navigation.management.permissions.groups.title')}</h2>
                              <button className="px-3 py-1 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600">
-                                Create New
+                                {t('navigation.management.permissions.groups.create')}
                             </button>
                         </div>
                         <div className="space-y-3">
                             {groups.map(group => (
                                 <div key={group.id} className="p-4 border dark:border-gray-700 rounded-lg">
                                     <h3 className="font-semibold">{group.name}</h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{group.description || 'No description provided.'}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{group.description || t('navigation.management.permissions.groups.noDescription')}</p>
                                 </div>
                             ))}
                             {groups.length === 0 && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">No groups available.</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{t('navigation.management.permissions.groups.empty')}</p>
                             )}
                         </div>
                     </div>
@@ -131,14 +133,14 @@ const MgmtPermissionsScreen: React.FC = () => {
 
                 <div className="lg:col-span-2">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                        <h2 className="text-xl font-semibold p-6">Users</h2>
+                        <h2 className="text-xl font-semibold p-6">{t('navigation.management.permissions.users.title')}</h2>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                 <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
-                                        <th className="px-6 py-3">User</th>
-                                        <th className="px-6 py-3">Groups</th>
-                                        <th className="px-6 py-3">Actions</th>
+                                        <th className="px-6 py-3">{t('navigation.management.permissions.users.user')}</th>
+                                        <th className="px-6 py-3">{t('navigation.management.permissions.users.groups')}</th>
+                                        <th className="px-6 py-3">{t('navigation.management.permissions.users.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -168,18 +170,18 @@ const MgmtPermissionsScreen: React.FC = () => {
                                                     );
                                                 })}
                                                 {(!user.groups || user.groups.length === 0) && (
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400">No groups</span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">{t('navigation.management.permissions.users.noGroups')}</span>
                                                 )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <button className="font-medium text-primary-600 dark:text-primary-400 hover:underline">Edit</button>
+                                                <button className="font-medium text-primary-600 dark:text-primary-400 hover:underline">{t('navigation.management.permissions.users.edit')}</button>
                                             </td>
                                         </tr>
                                     ))}
                                     {users.length === 0 && (
                                         <tr>
-                                            <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No users found for this organization.</td>
+                                            <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">{t('navigation.management.permissions.users.empty')}</td>
                                         </tr>
                                     )}
                                 </tbody>

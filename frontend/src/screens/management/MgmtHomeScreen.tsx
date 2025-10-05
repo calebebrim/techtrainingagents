@@ -5,6 +5,7 @@ import { UserGroupIcon, BookOpenIcon, AcademicCapIcon, ChartBarIcon } from '../.
 import { CourseStats } from '../../types';
 import { ORGANIZATION_DASHBOARD_QUERY } from '../../graphql/queries';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface OrganizationDashboardData {
     organizationDashboard: {
@@ -59,6 +60,7 @@ const getScoreHealthColor = (score: number | null | undefined) => {
 const MgmtHomeScreen: React.FC = () => {
     const { user } = useAuth();
     const organizationId = user?.organizationId;
+    const { t } = useTranslation();
 
     const { data, loading, error } = useQuery<OrganizationDashboardData>(
         ORGANIZATION_DASHBOARD_QUERY,
@@ -105,8 +107,8 @@ const MgmtHomeScreen: React.FC = () => {
     if (!organizationId) {
         return (
             <div className="container mx-auto space-y-8">
-                <h1 className="text-3xl font-bold">Management Dashboard</h1>
-                <p className="text-gray-600 dark:text-gray-400">Select an organization to view analytics.</p>
+                <h1 className="text-3xl font-bold">{t('navigation.management.dashboard.title')}</h1>
+                <p className="text-gray-600 dark:text-gray-400">{t('navigation.management.dashboard.selectOrg')}</p>
             </div>
         );
     }
@@ -114,8 +116,8 @@ const MgmtHomeScreen: React.FC = () => {
     if (loading) {
         return (
             <div className="container mx-auto space-y-8">
-                <h1 className="text-3xl font-bold">Management Dashboard</h1>
-                <p className="text-gray-600 dark:text-gray-400">Loading analytics...</p>
+                <h1 className="text-3xl font-bold">{t('navigation.management.dashboard.title')}</h1>
+                <p className="text-gray-600 dark:text-gray-400">{t('navigation.management.dashboard.loading')}</p>
             </div>
         );
     }
@@ -123,26 +125,26 @@ const MgmtHomeScreen: React.FC = () => {
     if (error) {
         return (
             <div className="container mx-auto space-y-8">
-                <h1 className="text-3xl font-bold">Management Dashboard</h1>
-                <p className="text-red-600">Failed to load dashboard: {error.message}</p>
+                <h1 className="text-3xl font-bold">{t('navigation.management.dashboard.title')}</h1>
+                <p className="text-red-600">{t('navigation.management.dashboard.error', { message: error.message })}</p>
             </div>
         );
     }
 
     return (
         <div className="container mx-auto space-y-8">
-            <h1 className="text-3xl font-bold">Management Dashboard</h1>
+            <h1 className="text-3xl font-bold">{t('navigation.management.dashboard.title')}</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Total Collaborators" value={totalCollaborators.toString()} icon={<UserGroupIcon className="w-6 h-6"/>} />
-                <StatCard title="Active Courses" value={activeCourses.toString()} icon={<BookOpenIcon className="w-6 h-6"/>} />
-                <StatCard title="Average Score" value={avgScore !== null && avgScore !== undefined ? `${Math.round(avgScore)}%` : '—'} icon={<AcademicCapIcon className="w-6 h-6"/>} />
-                <StatCard title="Avg Completion" value={avgCompletion !== null && avgCompletion !== undefined ? `${avgCompletion}%` : '—'} icon={<ChartBarIcon className="w-6 h-6"/>} />
+                <StatCard title={t('navigation.management.dashboard.stats.collaborators')} value={totalCollaborators.toString()} icon={<UserGroupIcon className="w-6 h-6"/>} />
+                <StatCard title={t('navigation.management.dashboard.stats.activeCourses')} value={activeCourses.toString()} icon={<BookOpenIcon className="w-6 h-6"/>} />
+                <StatCard title={t('navigation.management.dashboard.stats.averageScore')} value={avgScore !== null && avgScore !== undefined ? `${Math.round(avgScore)}%` : '—'} icon={<AcademicCapIcon className="w-6 h-6"/>} />
+                <StatCard title={t('navigation.management.dashboard.stats.averageCompletion')} value={avgCompletion !== null && avgCompletion !== undefined ? `${avgCompletion}%` : '—'} icon={<ChartBarIcon className="w-6 h-6"/>} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4">Course Performance</h2>
+                    <h2 className="text-xl font-semibold mb-4">{t('navigation.management.dashboard.coursePerformance')}</h2>
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={courseStats}>
@@ -151,21 +153,24 @@ const MgmtHomeScreen: React.FC = () => {
                                 <YAxis />
                                 <Tooltip contentStyle={{ backgroundColor: '#333', border: 'none' }} />
                                 <Legend />
-                                <Bar dataKey="averageScore" fill="#8884d8" name="Average Score (%)" />
-                                <Bar dataKey="completionRate" fill="#82ca9d" name="Completion Rate (%)" />
+                                <Bar dataKey="averageScore" fill="#8884d8" name={t('navigation.management.dashboard.chartLegend.averageScore')} />
+                                <Bar dataKey="completionRate" fill="#82ca9d" name={t('navigation.management.dashboard.chartLegend.completionRate')} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
+                    {courseStats.length === 0 && (
+                        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{t('navigation.management.dashboard.noData')}</p>
+                    )}
                 </div>
 
                 <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                     <h2 className="text-xl font-semibold mb-4">Course Health</h2>
+                     <h2 className="text-xl font-semibold mb-4">{t('navigation.management.dashboard.courseHealth.title')}</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">Course</th>
-                                    <th scope="col" className="px-6 py-3">Avg Score</th>
+                                    <th scope="col" className="px-6 py-3">{t('navigation.management.dashboard.courseHealth.course')}</th>
+                                    <th scope="col" className="px-6 py-3">{t('navigation.management.dashboard.courseHealth.averageScore')}</th>
                                 </tr>
                             </thead>
                             <tbody>

@@ -23,9 +23,11 @@ import AccountSettingsScreen from './screens/AccountSettingsScreen';
 import { ApolloProvider } from '@apollo/client/react';
 import client from './apollo';
 import { UserRole } from './types';
+import { useTranslation } from 'react-i18next';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
+    const { t } = useTranslation();
 
     const isSystemAdmin = user?.roles.includes(UserRole.SYSTEM_ADMIN) ?? false;
     const hasOrganizationAccess = !isSystemAdmin;
@@ -39,7 +41,7 @@ const AppRoutes: React.FC = () => {
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center text-gray-600 dark:text-gray-300">
-                Loading your workspace...
+                {t('app.loading')}
             </div>
         );
     }

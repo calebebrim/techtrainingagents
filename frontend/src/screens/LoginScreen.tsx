@@ -6,10 +6,12 @@ import { GoogleIcon, GithubIcon } from '../components/icons';
 import Modal from '../components/common/Modal';
 import './LoginScreen.css';
 import { CountryCode, formatIdentifier, identifierMetaByCountry } from '../utils/organizationIdentifier';
+import { useTranslation } from 'react-i18next';
 
 const LoginScreen: React.FC = () => {
     const { login, loading } = useAuth();
     const { showNotification } = useNotifications();
+    const { t } = useTranslation();
     const [isRegisterModalOpen, setRegisterModalOpen] = useState(false);
     const [cardNumber, setCardNumber] = useState('');
     const [cardExpiry, setCardExpiry] = useState('');
@@ -44,9 +46,10 @@ const LoginScreen: React.FC = () => {
         try {
             await login();
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to sign in with Google right now.';
+            const fallbackMessage = t('login.errors.googleLogin');
+            const message = error instanceof Error && error.message ? error.message : fallbackMessage;
             showNotification({
-                title: 'Authentication issue',
+                title: t('login.errors.title'),
                 message,
                 type: 'error',
                 duration: 7000
@@ -63,13 +66,13 @@ const LoginScreen: React.FC = () => {
                         <div className="relative z-10 flex flex-col justify-between px-12 py-16 text-white">
                             <div>
                                 <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur-sm">
-                                    Powered learning
+                                    {t('login.hero.badge')}
                                 </span>
                                 <h1 className="mt-6 text-4xl font-semibold leading-tight xl:text-5xl">
-                                    Upskill your teams with an AI curated academy.
+                                    {t('login.hero.title')}
                                 </h1>
                                 <p className="mt-4 max-w-md text-base text-white/85">
-                                    Offer tailored learning journeys, monitor progress in real time, and accelerate performance across every organization that runs on your platform.
+                                    {t('login.hero.description')}
                                 </p>
                             </div>
 
@@ -78,19 +81,19 @@ const LoginScreen: React.FC = () => {
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 backdrop-blur">
                                         <span className="text-lg font-semibold">01</span>
                                     </div>
-                                    <p className="text-sm text-white/80">Centralize academy management for every client organization.</p>
+                                    <p className="text-sm text-white/80">{t('login.hero.bullets.centralize')}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 backdrop-blur">
                                         <span className="text-lg font-semibold">02</span>
                                     </div>
-                                    <p className="text-sm text-white/80">Deliver insights with dashboards calibrated for leaders and admins.</p>
+                                    <p className="text-sm text-white/80">{t('login.hero.bullets.insights')}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 backdrop-blur">
                                         <span className="text-lg font-semibold">03</span>
                                     </div>
-                                    <p className="text-sm text-white/80">Switch themes instantly to match each brand&rsquo;s look and feel.</p>
+                                    <p className="text-sm text-white/80">{t('login.hero.bullets.themes')}</p>
                                 </div>
                             </div>
                         </div>
@@ -100,10 +103,10 @@ const LoginScreen: React.FC = () => {
                     <section className="login-panel flex items-center justify-center px-6 py-12 sm:px-10 lg:col-span-7 xl:col-span-6">
                         <div className="login-panel__content w-full max-w-md space-y-10">
                             <div>
-                                <span className="text-sm font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">Welcome back</span>
-                                <h2 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">Sign in to continue</h2>
+                                <span className="text-sm font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">{t('login.panel.welcome')}</span>
+                                <h2 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{t('login.panel.title')}</h2>
                                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Choose your provider to access your organization workspace.
+                                    {t('login.panel.description')}
                                 </p>
                             </div>
 
@@ -116,18 +119,18 @@ const LoginScreen: React.FC = () => {
                                     >
                                         <span className="flex items-center justify-center gap-3">
                                             <GoogleIcon className="h-6 w-6" />
-                                            <span>{loading ? 'Signing you in…' : 'Sign in with Google'}</span>
+                                            <span>{loading ? t('login.panel.signingIn') : t('login.panel.googleLabel')}</span>
                                         </span>
                                     </button>
                                     <button
                                         type="button"
                                         disabled
                                         className="provider-btn provider-btn--github w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:-translate-y-[1px] hover:border-gray-900 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-400"
-                                        title="GitHub authentication is coming soon"
+                                        title={t('login.panel.githubTooltip')}
                                     >
                                         <span className="flex items-center justify-center gap-3">
                                             <GithubIcon className="h-6 w-6" />
-                                            <span>{loading ? 'Signing you in…' : 'Sign in with GitHub'}</span>
+                                            <span>{loading ? t('login.panel.signingIn') : t('login.panel.githubLabel')}</span>
                                         </span>
                                     </button>
                                 </div>
@@ -135,43 +138,43 @@ const LoginScreen: React.FC = () => {
                                 <div className="mt-8 flex flex-col items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                                     <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-500" />
-                                        Organizations</div>
+                                        {t('login.panel.organizationsTag')}</div>
                                     <p className="text-center text-sm">
-                                        New to the platform?{' '}
+                                        {t('login.panel.newToPlatform')}{' '}
                                         <button
                                             onClick={() => setRegisterModalOpen(true)}
                                             className="font-semibold text-primary-600 transition hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
                                         >
-                                            Create an organization
+                                            {t('login.panel.createOrganization')}
                                         </button>
                                     </p>
                                 </div>
                             </div>
 
                             <p className="text-xs text-gray-500 dark:text-gray-500">
-                                By continuing, you agree to our Terms of Service and acknowledge you have read our Privacy Policy.
+                                {t('login.panel.terms')}
                             </p>
                         </div>
                     </section>
                 </div>
             </div>
 
-            <Modal isOpen={isRegisterModalOpen} onClose={() => setRegisterModalOpen(false)} title="Register New Organization">
+            <Modal isOpen={isRegisterModalOpen} onClose={() => setRegisterModalOpen(false)} title={t('login.modal.title')}>
                 <form className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <label htmlFor="company-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Company name</label>
+                            <label htmlFor="company-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.modal.companyName')}</label>
                             <input
                                 type="text"
                                 id="company-name"
                                 value={companyName}
                                 onChange={event => setCompanyName(event.target.value)}
-                                placeholder="Acme Corporation"
+                                placeholder={t('login.modal.companyPlaceholder')}
                                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
                             />
                         </div>
                         <div>
-                            <label htmlFor="register-country" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Country</label>
+                            <label htmlFor="register-country" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.modal.country')}</label>
                             <select
                                 id="register-country"
                                 value={registerCountry}
@@ -182,13 +185,13 @@ const LoginScreen: React.FC = () => {
                                 }}
                                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
                             >
-                                <option value="BR">Brasil</option>
-                                <option value="US">United States</option>
+                                <option value="BR">{t('login.modal.countryOptions.br')}</option>
+                                <option value="US">{t('login.modal.countryOptions.us')}</option>
                             </select>
                         </div>
                     </div>
                     <div>
-                        <label htmlFor="org-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Administrator's Institutional Email</label>
+                        <label htmlFor="org-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.modal.adminEmail')}</label>
                         <input type="email" id="org-email" placeholder="admin@mycompany.com" className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                     </div>
                     <div>
@@ -203,25 +206,25 @@ const LoginScreen: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="org-address" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization address</label>
+                        <label htmlFor="org-address" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.modal.address')}</label>
                         <textarea
                             id="org-address"
                             value={companyAddress}
                             onChange={event => setCompanyAddress(event.target.value)}
                             rows={3}
-                            placeholder="Street, number, city, state, ZIP"
+                            placeholder={t('login.modal.addressPlaceholder')}
                             className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Information</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.modal.paymentInfo')}</label>
                         <div className="mt-1 rounded-md border border-gray-300 p-3 dark:border-gray-600">
                             {/* In a real app, this would be a Stripe/Braintree element */}
                             <div className="space-y-2">
                                 <input
                                     type="text"
                                     inputMode="numeric"
-                                    placeholder="Card Number"
+                                    placeholder={t('login.modal.cardNumber')}
                                     value={cardNumber}
                                     onChange={event => setCardNumber(formatCardNumber(event.target.value))}
                                     className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
@@ -230,7 +233,7 @@ const LoginScreen: React.FC = () => {
                                     <input
                                         type="text"
                                         inputMode="numeric"
-                                        placeholder="MM / YY"
+                                        placeholder={t('login.modal.cardExpiry')}
                                         value={cardExpiry}
                                         onChange={event => setCardExpiry(formatCardExpiry(event.target.value))}
                                         className="block w-1/2 rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
@@ -238,7 +241,7 @@ const LoginScreen: React.FC = () => {
                                     <input
                                         type="text"
                                         inputMode="numeric"
-                                        placeholder="CVC"
+                                        placeholder={t('login.modal.cardCvc')}
                                         value={cardCvc}
                                         onChange={event => setCardCvc(formatCardCvc(event.target.value))}
                                         className="block w-1/2 rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
@@ -249,7 +252,7 @@ const LoginScreen: React.FC = () => {
                     </div>
                     <div className="pt-2">
                         <button type="submit" className="flex w-full justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                            Complete Registration
+                            {t('login.modal.submit')}
                         </button>
                     </div>
                 </form>

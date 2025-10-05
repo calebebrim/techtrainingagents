@@ -14,6 +14,7 @@ import {
     roleOrder,
     statusStyles,
 } from './systemPermissionsTypes';
+import { useTranslation } from 'react-i18next';
 
 interface Invite {
     id: string;
@@ -150,6 +151,7 @@ const mapUsersFromQuery = (data?: {
 
 const SystemPermissionsScreen: React.FC = () => {
     const { startImpersonation, isImpersonating, user: actingUser, authUser } = useAuth();
+    const { t } = useTranslation();
     const [users, setUsers] = useState<SystemUser[]>([]);
     const { data, loading: usersLoading, error: usersError } = useQuery(SYSTEM_USERS_QUERY, {
         fetchPolicy: 'network-only',
@@ -170,6 +172,21 @@ const SystemPermissionsScreen: React.FC = () => {
         pendingInvites.forEach(invite => orgSet.add(invite.organization));
         return Array.from(orgSet).sort();
     }, [users]);
+
+    const localizedRoleLabels = useMemo(() => {
+        return roleOrder.reduce<Record<SystemRole, string>>((acc, role) => {
+            acc[role] = t(`systemPermissions.roles.${role}`, { defaultValue: roleLabels[role] });
+            return acc;
+        }, { ...roleLabels });
+    }, [t]);
+
+    const translatedGroupLabels = useMemo(() => ({
+        'System Maintainers': t('systemPermissions.manageModal.groups.options.maintainers', { defaultValue: 'System Maintainers' }),
+        'Org Owners': t('systemPermissions.manageModal.groups.options.owners', { defaultValue: 'Org Owners' }),
+        'Security Reviewers': t('systemPermissions.manageModal.groups.options.reviewers', { defaultValue: 'Security Reviewers' }),
+        'Compliance Review': t('systemPermissions.manageModal.groups.options.compliance', { defaultValue: 'Compliance Review' }),
+        'Readonly': t('systemPermissions.manageModal.groups.options.readonly', { defaultValue: 'Readonly' }),
+    }), [t]);
 
     useEffect(() => {
         if (organizations.length > 0 && !organizations.includes(inviteOrg)) {
@@ -258,7 +275,7 @@ const SystemPermissionsScreen: React.FC = () => {
         try {
             await startImpersonation({ userId: target.id, email: target.email });
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to impersonate this user right now.';
+            const message = error instanceof Error ? error.message : t('systemPermissions.impersonation.error');
             if (typeof window !== 'undefined') {
                 window.alert(message);
             }
@@ -271,9 +288,9 @@ const SystemPermissionsScreen: React.FC = () => {
         <div className="space-y-10">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">System Permissions</h1>
+                    <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">{t('systemPermissions.title')}</h1>
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Manage privileged access across every organization connected to the platform.
+                        {t('systemPermissions.description')}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -282,14 +299,14 @@ const SystemPermissionsScreen: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
                     >
                         <ShieldCheckIcon className="h-5 w-5" />
-                        Invite Super Admin
+                        {t('systemPermissions.actions.invite')}
                     </button>
                     <a
                         href="/system/organizations"
                         className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-primary-500 hover:text-primary-600 dark:border-gray-600 dark:text-gray-200 dark:hover:border-primary-400"
                     >
                         <OfficeBuildingIcon className="h-5 w-5" />
-                        Manage Organizations
+                        {t('systemPermissions.actions.manageOrganizations')}
                     </a>
                 </div>
             </div>
@@ -297,36 +314,36 @@ const SystemPermissionsScreen: React.FC = () => {
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                     icon={<ShieldCheckIcon className="h-5 w-5" />}
-                    label="System Admins"
+                    label={t('systemPermissions.stats.systemAdmins.label')}
                     value={totalSystemAdmins.toString()}
-                    trend="All elevated access"
+                    trend={t('systemPermissions.stats.systemAdmins.trend')}
                 />
                 <StatCard
                     icon={<OfficeBuildingIcon className="h-5 w-5" />}
-                    label="Organizations"
+                    label={t('systemPermissions.stats.organizations.label')}
                     value={totalOrganizations.toString()}
-                    trend="Connected tenants"
+                    trend={t('systemPermissions.stats.organizations.trend')}
                 />
                 <StatCard
                     icon={<UserGroupIcon className="h-5 w-5" />}
-                    label="Active Privileged Users"
+                    label={t('systemPermissions.stats.privilegedUsers.label')}
                     value={totalUsers.toString()}
-                    trend={`${pendingInvites.length} pending invitations`}
+                    trend={t('systemPermissions.stats.privilegedUsers.trend', { count: pendingInvites.length })}
                 />
                 <StatCard
                     icon={<ChartBarIcon className="h-5 w-5" />}
-                    label="Active Seats"
+                    label={t('systemPermissions.stats.activeSeats.label')}
                     value={activeSeats.toString()}
-                    trend="Across all organizations"
+                    trend={t('systemPermissions.stats.activeSeats.trend')}
                 />
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pending Invitations</h2>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('systemPermissions.invitations.title')}</h2>
                         <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                            {pendingInvites.length} awaiting
+                            {t('systemPermissions.invitations.badge', { count: pendingInvites.length })}
                         </span>
                     </div>
                     <div className="mt-4 space-y-4">
@@ -335,37 +352,37 @@ const SystemPermissionsScreen: React.FC = () => {
                                 <div>
                                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{invite.email}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {invite.organization} • {roleLabels[invite.role]}
+                                        {invite.organization} • {localizedRoleLabels[invite.role]}
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs text-gray-400 dark:text-gray-500">Sent {invite.sentAt}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500">{t('systemPermissions.invitations.sentAt', { time: invite.sentAt })}</p>
                                     <button className="mt-2 text-xs font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400">
-                                        Resend link
+                                        {t('systemPermissions.invitations.resend')}
                                     </button>
                                 </div>
                             </div>
                         ))}
                         {pendingInvites.length === 0 && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">All invitations have been accepted.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{t('systemPermissions.invitations.empty')}</p>
                         )}
                     </div>
                 </div>
 
                 <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Seat Utilization</h2>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('systemPermissions.seatUsage.title')}</h2>
                         <AdjustmentsIcon className="h-5 w-5 text-gray-400" />
                     </div>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Monitor how many licenses privileged users consume in each organization.
+                        {t('systemPermissions.seatUsage.description')}
                     </p>
                     <div className="mt-6 space-y-4">
                         {seatUsage.map(entry => (
                             <div key={entry.organization}>
                                 <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
                                     <span>{entry.organization}</span>
-                                    <span>{entry.seats} seats</span>
+                                    <span>{t('systemPermissions.seatUsage.count', { count: entry.seats })}</span>
                                 </div>
                                 <div className="mt-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700">
                                     <div
@@ -376,7 +393,7 @@ const SystemPermissionsScreen: React.FC = () => {
                             </div>
                         ))}
                         {seatUsage.length === 0 && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">No seat usage recorded yet.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{t('systemPermissions.seatUsage.empty')}</p>
                         )}
                     </div>
                 </div>
@@ -387,7 +404,7 @@ const SystemPermissionsScreen: React.FC = () => {
                     users={users}
                     isLoading={isLoadingUsers}
                     organizations={organizations}
-                    roleLabels={roleLabels}
+                    roleLabels={localizedRoleLabels}
                     canImpersonate={canImpersonate}
                     impersonatedUserId={impersonatedUserId}
                     impersonationLoadingId={impersonationLoadingId}
@@ -401,25 +418,25 @@ const SystemPermissionsScreen: React.FC = () => {
             <Modal
                 isOpen={Boolean(editingUser)}
                 onClose={closeEditModal}
-                title={editingUser ? `Manage access • ${editingUser.name}` : 'Manage access'}
+                title={editingUser ? t('systemPermissions.manageModal.titleWithName', { name: editingUser.name }) : t('systemPermissions.manageModal.title')}
             >
                 {editingUser && (
                     <div className="space-y-6">
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Roles</h3>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('systemPermissions.manageModal.roles.title')}</h3>
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Grant only the permissions required for this administrator.
+                                {t('systemPermissions.manageModal.roles.description')}
                             </p>
                             <div className="mt-3 space-y-2">
                                 {roleOrder.map(role => (
                                     <label key={role} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2 text-sm dark:border-gray-700">
                                         <div>
-                                            <span className="font-medium text-gray-900 dark:text-gray-100">{roleLabels[role]}</span>
+                                            <span className="font-medium text-gray-900 dark:text-gray-100">{localizedRoleLabels[role]}</span>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {role === 'SYSTEM_ADMIN' && 'Full control over all tenants and settings.'}
-                                                {role === 'ORG_ADMIN' && 'Manage users, courses, and billing within an organization.'}
-                                                {role === 'COURSE_COORDINATOR' && 'Curate catalog, assign learning paths, monitor progress.'}
-                                                {role === 'TECHNICAL_STAFF' && 'Support learners, review requests, handle escalations.'}
+                                                {role === 'SYSTEM_ADMIN' && t('systemPermissions.manageModal.roles.SYSTEM_ADMIN')}
+                                                {role === 'ORG_ADMIN' && t('systemPermissions.manageModal.roles.ORG_ADMIN')}
+                                                {role === 'COURSE_COORDINATOR' && t('systemPermissions.manageModal.roles.COURSE_COORDINATOR')}
+                                                {role === 'TECHNICAL_STAFF' && t('systemPermissions.manageModal.roles.TECHNICAL_STAFF')}
                                             </p>
                                         </div>
                                         <input
@@ -434,9 +451,9 @@ const SystemPermissionsScreen: React.FC = () => {
                         </div>
 
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Access groups</h3>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('systemPermissions.manageModal.groups.title')}</h3>
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Stack groups to reflect fine grained responsibilities.
+                                {t('systemPermissions.manageModal.groups.description')}
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2">
                                 {groupOptions.map(group => {
@@ -452,7 +469,7 @@ const SystemPermissionsScreen: React.FC = () => {
                                             }`}
                                             type="button"
                                         >
-                                            {group}
+                                            {translatedGroupLabels[group] ?? group}
                                         </button>
                                     );
                                 })}
@@ -461,13 +478,15 @@ const SystemPermissionsScreen: React.FC = () => {
 
                         <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
                             <div className="flex items-center justify-between">
-                                <span>Current status</span>
+                                <span>{t('systemPermissions.manageModal.status')}</span>
                                 <span className={`rounded-full px-3 py-1 font-medium ${statusStyles[editingUser.status]}`}>
-                                    {editingUser.status === 'invited' ? 'Invitation sent' : editingUser.status.charAt(0).toUpperCase() + editingUser.status.slice(1)}
+                                    {t(`systemPermissions.statuses.${editingUser.status}`, {
+                                        defaultValue: editingUser.status.charAt(0).toUpperCase() + editingUser.status.slice(1),
+                                    })}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span>Last activity</span>
+                                <span>{t('systemPermissions.manageModal.lastActive')}</span>
                                 <span>{editingUser.lastActive}</span>
                             </div>
                         </div>
@@ -477,21 +496,21 @@ const SystemPermissionsScreen: React.FC = () => {
                                 onClick={closeEditModal}
                                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300"
                             >
-                                Close
+                                {t('systemPermissions.manageModal.close')}
                             </button>
                             <button className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">
-                                Save changes
+                                {t('systemPermissions.manageModal.save')}
                             </button>
                         </div>
                     </div>
                 )}
             </Modal>
 
-            <Modal isOpen={isInviteModalOpen} onClose={() => setInviteModalOpen(false)} title="Invite new privileged user">
+            <Modal isOpen={isInviteModalOpen} onClose={() => setInviteModalOpen(false)} title={t('systemPermissions.inviteModal.title')}>
                 <form onSubmit={handleSendInvite} className="space-y-4">
                     <div>
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="invite-email">
-                            Work email
+                            {t('systemPermissions.inviteModal.emailLabel')}
                         </label>
                         <input
                             id="invite-email"
@@ -505,7 +524,7 @@ const SystemPermissionsScreen: React.FC = () => {
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="invite-org">
-                                Organization
+                                {t('systemPermissions.inviteModal.organizationLabel')}
                             </label>
                             <select
                                 id="invite-org"
@@ -522,7 +541,7 @@ const SystemPermissionsScreen: React.FC = () => {
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="invite-role">
-                                Role
+                                {t('systemPermissions.inviteModal.roleLabel')}
                             </label>
                             <select
                                 id="invite-role"
@@ -532,7 +551,7 @@ const SystemPermissionsScreen: React.FC = () => {
                             >
                                 {roleOrder.map(role => (
                                     <option key={role} value={role}>
-                                        {roleLabels[role]}
+                                        {localizedRoleLabels[role]}
                                     </option>
                                 ))}
                             </select>
@@ -540,13 +559,13 @@ const SystemPermissionsScreen: React.FC = () => {
                     </div>
                     <div>
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="invite-message">
-                            Message
+                            {t('systemPermissions.inviteModal.messageLabel')}
                         </label>
                         <textarea
                             id="invite-message"
                             rows={3}
                             className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                            placeholder="Share context on why they are receiving elevated access."
+                            placeholder={t('systemPermissions.inviteModal.messagePlaceholder')}
                         />
                     </div>
                     <div className="flex justify-end gap-3">
@@ -555,13 +574,13 @@ const SystemPermissionsScreen: React.FC = () => {
                             onClick={() => setInviteModalOpen(false)}
                             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300"
                         >
-                            Cancel
+                            {t('systemPermissions.inviteModal.cancel')}
                         </button>
                         <button
                             type="submit"
                             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700"
                         >
-                            Send invitation
+                            {t('systemPermissions.inviteModal.submit')}
                         </button>
                     </div>
                 </form>

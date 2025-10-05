@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { UserRole } from '../../types';
 import { SunIcon, MoonIcon, CogIcon, LogoutIcon, MenuIcon, UserGroupIcon, ShieldCheckIcon } from '../icons';
 import { getInitials } from '../../utils/avatar';
+import { useTranslation } from 'react-i18next';
 
 const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) => {
     const { user, authUser, isImpersonating, startImpersonation, stopImpersonation, logout } = useAuth();
@@ -13,6 +14,7 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
     const [isMenuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     const actingUser = user;
     const realUser = authUser ?? user;
@@ -34,7 +36,7 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
             return;
         }
 
-        const input = window.prompt('Enter the email or ID of the user you want to impersonate:');
+        const input = window.prompt(t('header.prompt.impersonate'));
         if (!input) {
             return;
         }
@@ -49,7 +51,7 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
         try {
             await startImpersonation(payload);
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to impersonate the requested user.';
+            const message = error instanceof Error ? error.message : t('header.errors.impersonate');
             window.alert(message);
         }
     };
@@ -59,7 +61,7 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
         try {
             await stopImpersonation();
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to stop impersonating right now.';
+            const message = error instanceof Error ? error.message : t('header.errors.stopImpersonation');
             if (typeof window !== 'undefined') {
                 window.alert(message);
             }
@@ -80,11 +82,11 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
                     <MenuIcon className="h-6 w-6" />
                 </button>
                 <div className="relative text-lg font-semibold ml-2 text-gray-800 dark:text-white">
-                    Training Platform
+                    {t('header.title')}
                 </div>
                 {isImpersonating && actingUser && (
                     <span className="ml-3 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-                        Impersonating {actingUser.name}
+                        {t('header.impersonating', { name: actingUser.name })}
                     </span>
                 )}
             </div>
@@ -109,21 +111,27 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
                                 <div className="truncate">{realUser?.email}</div>
                                 {isImpersonating && actingUser && realUser && actingUser.id !== realUser.id && (
                                     <div className="mt-2 rounded bg-amber-100 px-2 py-1 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-                                        Acting as {actingUser.name}
+                                        {t('header.actingAs', { name: actingUser.name })}
                                     </div>
                                 )}
                             </div>
-                            <a href="#/account-settings" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <button
+                                onClick={() => {
+                                    setMenuOpen(false);
+                                    navigate('/account-settings');
+                                }}
+                                className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
                                 <CogIcon className="w-5 h-5 mr-2"/>
-                                Account Settings
-                            </a>
+                                {t('header.menu.account')}
+                            </button>
                             {canImpersonate && (
                                 <button
                                     onClick={handleStartImpersonation}
                                     className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                                 >
                                     <UserGroupIcon className="w-5 h-5 mr-2" />
-                                    {isImpersonating ? 'Switch Impersonation' : 'Impersonate User'}
+                                    {isImpersonating ? t('header.menu.switchImpersonation') : t('header.menu.impersonate')}
                                 </button>
                             )}
                             {isImpersonating && (
@@ -132,16 +140,16 @@ const Header: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) 
                                     className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                                 >
                                     <ShieldCheckIcon className="w-5 h-5 mr-2" />
-                                    Stop Impersonating
+                                    {t('header.menu.stopImpersonating')}
                                 </button>
                             )}
                             <button onClick={toggleTheme} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                                 {theme === 'light' ? <MoonIcon className="w-5 h-5 mr-2" /> : <SunIcon className="w-5 h-5 mr-2" />}
-                                {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                                {theme === 'light' ? t('header.menu.darkMode') : t('header.menu.lightMode')}
                             </button>
                             <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                                 <LogoutIcon className="w-5 h-5 mr-2" />
-                                Logout
+                                {t('header.menu.logout')}
                             </button>
                         </div>
                     )}

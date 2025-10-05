@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 import { HomeIcon, SearchIcon, BookOpenIcon, AcademicCapIcon, ShieldCheckIcon, AdjustmentsIcon, OfficeBuildingIcon, UserGroupIcon, ChartBarIcon } from '../icons';
+import { useTranslation } from 'react-i18next';
 
 interface NavItemProps {
     to: string;
@@ -29,6 +30,7 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label }) => (
 
 const Sidebar: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const isSystemAdmin = user?.roles.includes(UserRole.SYSTEM_ADMIN) ?? false;
     const hasOrganizationAccess = !isSystemAdmin;
     const hasMgmtAccess = hasOrganizationAccess && user?.roles.some(role => [UserRole.ORG_ADMIN, UserRole.COURSE_COORDINATOR].includes(role));
@@ -42,20 +44,20 @@ const Sidebar: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
             <nav className="flex-1 px-4 py-6 space-y-2">
                 {hasOrganizationAccess && (
                     <>
-                        <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Organization</p>
-                        <NavItem to="/" icon={<HomeIcon className="w-5 h-5" />} label="Home" />
-                        <NavItem to="/search" icon={<SearchIcon className="w-5 h-5" />} label="Search" />
-                        <NavItem to="/my-courses" icon={<BookOpenIcon className="w-5 h-5" />} label="My Courses" />
-                        <NavItem to="/my-paths" icon={<AdjustmentsIcon className="w-5 h-5" />} label="Learning Paths" />
-                        <NavItem to="/my-certificates" icon={<AcademicCapIcon className="w-5 h-5" />} label="Certificates" />
+                        <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('navigation.sections.organization')}</p>
+                        <NavItem to="/" icon={<HomeIcon className="w-5 h-5" />} label={t('navigation.items.home')} />
+                        <NavItem to="/search" icon={<SearchIcon className="w-5 h-5" />} label={t('navigation.items.search')} />
+                        <NavItem to="/my-courses" icon={<BookOpenIcon className="w-5 h-5" />} label={t('navigation.items.myCourses')} />
+                        <NavItem to="/my-paths" icon={<AdjustmentsIcon className="w-5 h-5" />} label={t('navigation.items.learningPaths')} />
+                        <NavItem to="/my-certificates" icon={<AcademicCapIcon className="w-5 h-5" />} label={t('navigation.items.certificates')} />
 
                         {hasMgmtAccess && (
                             <>
-                                <p className="px-4 pt-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</p>
-                                <NavItem to="/manage" icon={<ChartBarIcon className="w-5 h-5" />} label="Dashboard" />
-                                <NavItem to="/manage/course-scores" icon={<BookOpenIcon className="w-5 h-5" />} label="Course Scores" />
-                                <NavItem to="/manage/employee-scores" icon={<UserGroupIcon className="w-5 h-5" />} label="Employee Scores" />
-                                <NavItem to="/manage/permissions" icon={<ShieldCheckIcon className="w-5 h-5" />} label="Permissions" />
+                                <p className="px-4 pt-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('navigation.sections.management')}</p>
+                                <NavItem to="/manage" icon={<ChartBarIcon className="w-5 h-5" />} label={t('navigation.items.dashboard')} />
+                                <NavItem to="/manage/course-scores" icon={<BookOpenIcon className="w-5 h-5" />} label={t('navigation.items.courseScores')} />
+                                <NavItem to="/manage/employee-scores" icon={<UserGroupIcon className="w-5 h-5" />} label={t('navigation.items.employeeScores')} />
+                                <NavItem to="/manage/permissions" icon={<ShieldCheckIcon className="w-5 h-5" />} label={t('navigation.items.permissions')} />
                             </>
                         )}
                     </>
@@ -63,9 +65,9 @@ const Sidebar: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
 
                 {hasSystemAccess && (
                     <>
-                        <p className="px-4 pt-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">System</p>
-                        <NavItem to="/system/organizations" icon={<OfficeBuildingIcon className="w-5 h-5" />} label="Organizations" />
-                        <NavItem to="/system/permissions" icon={<ShieldCheckIcon className="w-5 h-5" />} label="System Permissions" />
+                        <p className="px-4 pt-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('navigation.sections.system')}</p>
+                        <NavItem to="/system/organizations" icon={<OfficeBuildingIcon className="w-5 h-5" />} label={t('navigation.items.organizations')} />
+                        <NavItem to="/system/permissions" icon={<ShieldCheckIcon className="w-5 h-5" />} label={t('navigation.items.systemPermissions')} />
                     </>
                 )}
             </nav>
