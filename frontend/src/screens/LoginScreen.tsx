@@ -1,22 +1,56 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import { GoogleIcon, GithubIcon } from '../components/icons';
 import Modal from '../components/common/Modal';
 import './LoginScreen.css';
+import { CountryCode, formatIdentifier, identifierMetaByCountry } from '../utils/organizationIdentifier';
 
 const LoginScreen: React.FC = () => {
     const { login, loading } = useAuth();
+    const { showNotification } = useNotifications();
     const [isRegisterModalOpen, setRegisterModalOpen] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [cardNumber, setCardNumber] = useState('');
+    const [cardExpiry, setCardExpiry] = useState('');
+    const [cardCvc, setCardCvc] = useState('');
+    const [registerCountry, setRegisterCountry] = useState<CountryCode>('BR');
+    const [companyName, setCompanyName] = useState('');
+    const [companyAddress, setCompanyAddress] = useState('');
+    const [governmentId, setGovernmentId] = useState('');
+
+    const formatCardNumber = (value: string) => {
+        const digits = value.replace(/\D/g, '').slice(0, 19);
+        const parts = digits.match(/.{1,4}/g) ?? [];
+        return parts.join(' ');
+    };
+
+    const formatCardExpiry = (value: string) => {
+        const digits = value.replace(/\D/g, '').slice(0, 4);
+        if (digits.length === 0) {
+            return '';
+        }
+        if (digits.length <= 2) {
+            return digits;
+        }
+        return `${digits.slice(0, 2)} / ${digits.slice(2)}`;
+    };
+
+    const formatCardCvc = (value: string) => value.replace(/\D/g, '').slice(0, 4);
+
+    const identifierMeta = useMemo(() => identifierMetaByCountry[registerCountry], [registerCountry]);
 
     const handleLogin = async () => {
         try {
-            setErrorMessage(null);
             await login();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unable to sign in with Google right now.';
-            setErrorMessage(message);
+            showNotification({
+                title: 'Authentication issue',
+                message,
+                type: 'error',
+                duration: 7000
+            });
         }
     };
 
@@ -75,14 +109,6 @@ const LoginScreen: React.FC = () => {
 
                             <div className="login-card rounded-2xl border border-gray-200 bg-white/90 p-8 shadow-xl backdrop-blur dark:border-gray-700 dark:bg-gray-900/80">
                                 <div className="space-y-4">
-                                    {errorMessage && (
-                                        <div
-                                            role="alert"
-                                            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-600 dark:bg-red-900/40 dark:text-red-200"
-                                        >
-                                            {errorMessage}
-                                        </div>
-                                    )}
                                     <button
                                         onClick={handleLogin}
                                         disabled={loading}
@@ -132,23 +158,91 @@ const LoginScreen: React.FC = () => {
 
             <Modal isOpen={isRegisterModalOpen} onClose={() => setRegisterModalOpen(false)} title="Register New Organization">
                 <form className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label htmlFor="company-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Company name</label>
+                            <input
+                                type="text"
+                                id="company-name"
+                                value={companyName}
+                                onChange={event => setCompanyName(event.target.value)}
+                                placeholder="Acme Corporation"
+                                className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="register-country" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Country</label>
+                            <select
+                                id="register-country"
+                                value={registerCountry}
+                                onChange={event => {
+                                    const next = event.target.value as CountryCode;
+                                    setRegisterCountry(next);
+                                    setGovernmentId(current => formatIdentifier(next, current));
+                                }}
+                                className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                            >
+                                <option value="BR">Brasil</option>
+                                <option value="US">United States</option>
+                            </select>
+                        </div>
+                    </div>
                     <div>
                         <label htmlFor="org-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Administrator's Institutional Email</label>
                         <input type="email" id="org-email" placeholder="admin@mycompany.com" className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                     </div>
                     <div>
-                        <label htmlFor="cnpj" className="block text-sm font-medium text-gray-700 dark:text-gray-300">CNPJ</label>
-                        <input type="text" id="cnpj" placeholder="00.000.000/0001-00" className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
+                        <label htmlFor="government-id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{identifierMeta.label}</label>
+                        <input
+                            type="text"
+                            id="government-id"
+                            value={governmentId}
+                            onChange={event => setGovernmentId(formatIdentifier(registerCountry, event.target.value))}
+                            placeholder={identifierMeta.placeholder}
+                            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="org-address" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization address</label>
+                        <textarea
+                            id="org-address"
+                            value={companyAddress}
+                            onChange={event => setCompanyAddress(event.target.value)}
+                            rows={3}
+                            placeholder="Street, number, city, state, ZIP"
+                            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Information</label>
                         <div className="mt-1 rounded-md border border-gray-300 p-3 dark:border-gray-600">
                             {/* In a real app, this would be a Stripe/Braintree element */}
                             <div className="space-y-2">
-                                <input type="text" placeholder="Card Number" className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="Card Number"
+                                    value={cardNumber}
+                                    onChange={event => setCardNumber(formatCardNumber(event.target.value))}
+                                    className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
+                                />
                                 <div className="flex gap-2">
-                                    <input type="text" placeholder="MM / YY" className="block w-1/2 rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-                                    <input type="text" placeholder="CVC" className="block w-1/2 rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="MM / YY"
+                                        value={cardExpiry}
+                                        onChange={event => setCardExpiry(formatCardExpiry(event.target.value))}
+                                        className="block w-1/2 rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
+                                    />
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="CVC"
+                                        value={cardCvc}
+                                        onChange={event => setCardCvc(formatCardCvc(event.target.value))}
+                                        className="block w-1/2 rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
+                                    />
                                 </div>
                             </div>
                         </div>
