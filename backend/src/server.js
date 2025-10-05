@@ -262,6 +262,7 @@ const bootstrap = async () => {
 
   await new Promise((resolve) => httpServer.listen({ port }, resolve));
   console.log(`🚀 GraphQL ready at http://localhost:${port}/graphql`);
+  console.log(`\tHealth endpoint http://localhost:${port}/health`);
 };
 
 if (require.main === module) {

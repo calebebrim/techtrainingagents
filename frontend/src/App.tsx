@@ -45,6 +45,7 @@ const AppRoutes: React.FC = () => {
         return (
             <Routes>
                 <Route path="/login" element={<LoginScreen />} />
+                <Route path="/health" element={<div>I'm alive!</div>} />
                 <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         );
