@@ -183,6 +183,12 @@ const typeDefs = gql`
     score: Int!
   }
 
+  type Viewer {
+    user: User!
+    authUser: User!
+    isImpersonating: Boolean!
+  }
+
   type Query {
     organizations: [Organization!]!
     organization(id: ID, slug: String): Organization
@@ -195,6 +201,7 @@ const typeDefs = gql`
     organizationDashboard(organizationId: ID!): OrganizationDashboard!
     employeeCourseScores(organizationId: ID!, courseId: ID): [EmployeeScore!]!
     me: User
+    viewer: Viewer!
   }
 
   type Mutation {

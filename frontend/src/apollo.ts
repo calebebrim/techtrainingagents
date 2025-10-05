@@ -1,7 +1,7 @@
 import { ApolloClient, InMemoryCache } from '@apollo/client';
 import { HttpLink } from '@apollo/client/link/http';
 import { setContext } from '@apollo/client/link/context';
-import { AUTH_TOKEN_STORAGE_KEY } from './constants/auth';
+import { AUTH_TOKEN_STORAGE_KEY, IMPERSONATION_STORAGE_KEY } from './constants/auth';
 
 const { VITE_BACKEND_URL } = import.meta.env;
 const LOCAL_DEFAULT = import.meta.env.DEV ? 'http://localhost:4000' : '';
@@ -42,18 +42,36 @@ const httpLink = new HttpLink({
 
 const authLink = setContext((_, { headers }) => {
   let token: string | null = null;
+  const impersonationHeaders: Record<string, string> = {};
+
   if (typeof window !== 'undefined') {
     try {
       token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+
+      const storedImpersonation = window.localStorage.getItem(IMPERSONATION_STORAGE_KEY);
+      if (storedImpersonation) {
+        try {
+          const parsed = JSON.parse(storedImpersonation) as { userId?: string | null; email?: string | null };
+          if (parsed?.userId) {
+            impersonationHeaders['x-impersonate-user-id'] = String(parsed.userId).trim();
+          }
+          if (parsed?.email) {
+            impersonationHeaders['x-impersonate-user-email'] = String(parsed.email).trim();
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse impersonation settings from storage', parseError);
+        }
+      }
     } catch (error) {
-      console.warn('Unable to access localStorage for auth token', error);
+      console.warn('Unable to access localStorage for auth metadata', error);
     }
   }
 
   return {
     headers: {
       ...headers,
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...impersonationHeaders
     }
   };
 });

@@ -10,7 +10,7 @@ import React, {
 import { gql } from '@apollo/client';
 import { User, UserRole } from '../types';
 import client, { backendBaseUrl } from '../apollo';
-import { AUTH_TOKEN_STORAGE_KEY } from '../constants/auth';
+import { AUTH_TOKEN_STORAGE_KEY, IMPERSONATION_STORAGE_KEY } from '../constants/auth';
 
 declare global {
   interface Window {
@@ -20,9 +20,14 @@ declare global {
 
 interface AuthContextType {
   user: User | null;
+  authUser: User | null;
   loading: boolean;
+  isImpersonating: boolean;
+  impersonationTarget: ImpersonationTarget | null;
   login: () => Promise<void>;
   logout: () => void;
+  startImpersonation: (input: StartImpersonationInput) => Promise<void>;
+  stopImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,9 +53,20 @@ interface RawUser {
   groups?: Array<RawGroup> | null;
 }
 
-interface MeQueryResult {
-  me: RawUser | null;
+interface ViewerQueryResult {
+  viewer: {
+    user: RawUser | null;
+    authUser: RawUser | null;
+    isImpersonating: boolean;
+  };
 }
+
+interface ImpersonationTarget {
+  userId?: string;
+  email?: string;
+}
+
+type StartImpersonationInput = ImpersonationTarget;
 
 interface GoogleAuthResponse {
   token: string;
@@ -63,22 +79,41 @@ interface GoogleCodeResponse {
   error_description?: string;
 }
 
-const ME_QUERY = gql`
-  query Me {
-    me {
-      id
-      name
-      email
-      avatarUrl
-      roles
-      status
-      themePreference
-      organization {
+const VIEWER_QUERY = gql`
+  query Viewer {
+    viewer {
+      isImpersonating
+      user {
         id
         name
+        email
+        avatarUrl
+        roles
+        status
+        themePreference
+        organization {
+          id
+          name
+        }
+        groups {
+          id
+        }
       }
-      groups {
+      authUser {
         id
+        name
+        email
+        avatarUrl
+        roles
+        status
+        themePreference
+        organization {
+          id
+          name
+        }
+        groups {
+          id
+        }
       }
     }
   }
@@ -141,6 +176,56 @@ const clearStoredToken = () => {
     window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
   } catch (error) {
     console.warn('Unable to clear auth token from storage', error);
+  }
+};
+
+const getStoredImpersonation = (): ImpersonationTarget | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const rawValue = window.localStorage.getItem(IMPERSONATION_STORAGE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+    const parsed = JSON.parse(rawValue) as ImpersonationTarget | null;
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    const userId = typeof parsed.userId === 'string' ? parsed.userId.trim() : undefined;
+    const email = typeof parsed.email === 'string' ? parsed.email.trim() : undefined;
+    if (!userId && !email) {
+      return null;
+    }
+    return {
+      ...(userId ? { userId } : {}),
+      ...(email ? { email } : {})
+    };
+  } catch (error) {
+    console.warn('Unable to read impersonation settings from storage', error);
+    return null;
+  }
+};
+
+const storeImpersonation = (target: ImpersonationTarget) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(IMPERSONATION_STORAGE_KEY, JSON.stringify(target));
+  } catch (error) {
+    console.warn('Unable to persist impersonation settings', error);
+  }
+};
+
+const clearStoredImpersonation = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(IMPERSONATION_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to clear impersonation settings from storage', error);
   }
 };
 
@@ -241,16 +326,43 @@ const requestGoogleAuthorizationCode = async (clientId: string): Promise<string>
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonationTarget, setImpersonationTarget] = useState<ImpersonationTarget | null>(() => getStoredImpersonation());
 
-  const fetchCurrentUser = useCallback(async () => {
-    const { data } = await client.query<MeQueryResult>({
-      query: ME_QUERY,
+  const fetchViewer = useCallback(async () => {
+    const { data } = await client.query<ViewerQueryResult>({
+      query: VIEWER_QUERY,
       fetchPolicy: 'network-only'
     });
-    const mappedUser = transformUser(data?.me);
+
+    const viewer = data?.viewer;
+    const mappedUser = transformUser(viewer?.user);
+    const mappedAuthUser = transformUser(viewer?.authUser) ?? mappedUser;
+
     setUser(mappedUser);
-    return mappedUser;
+    setAuthUser(mappedAuthUser);
+
+    const impersonating = Boolean(
+      viewer?.isImpersonating &&
+        mappedUser &&
+        mappedAuthUser &&
+        mappedUser.id !== mappedAuthUser.id
+    );
+
+    setIsImpersonating(impersonating);
+
+    if (!impersonating) {
+      setImpersonationTarget(null);
+      clearStoredImpersonation();
+    }
+
+    return {
+      user: mappedUser,
+      authUser: mappedAuthUser,
+      isImpersonating: impersonating
+    };
   }, []);
 
   const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim();
@@ -284,45 +396,116 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       storeToken(payload.token);
+      clearStoredImpersonation();
+      setImpersonationTarget(null);
+      setIsImpersonating(false);
 
       const optimisticUser = transformUser(payload.user);
       if (optimisticUser) {
         setUser(optimisticUser);
+        setAuthUser(optimisticUser);
       }
 
-      await fetchCurrentUser();
+      await fetchViewer();
     } catch (error) {
       clearStoredToken();
+      clearStoredImpersonation();
       setUser(null);
+      setAuthUser(null);
+      setIsImpersonating(false);
+      setImpersonationTarget(null);
       console.error('Google login failed', error);
       throw error instanceof Error ? error : new Error('Failed to authenticate with Google.');
     } finally {
       setLoading(false);
     }
-  }, [fetchCurrentUser, googleClientId]);
+  }, [fetchViewer, googleClientId]);
 
   const logout = useCallback(() => {
     clearStoredToken();
+    clearStoredImpersonation();
     setUser(null);
+    setAuthUser(null);
+    setIsImpersonating(false);
+    setImpersonationTarget(null);
     client.clearStore().catch((error) => {
       console.warn('Failed to clear Apollo cache on logout', error);
     });
   }, []);
 
+  const startImpersonation = useCallback(async (input: StartImpersonationInput) => {
+    const normalizedUserId = input.userId ? String(input.userId).trim() : '';
+    const normalizedEmailRaw = input.email ? String(input.email).trim() : '';
+    const normalizedEmail = normalizedEmailRaw ? normalizedEmailRaw.toLowerCase() : '';
+
+    if (!normalizedUserId && !normalizedEmail) {
+      throw new Error('Provide a user ID or email address to impersonate another user.');
+    }
+
+    const target: ImpersonationTarget = {
+      ...(normalizedUserId ? { userId: normalizedUserId } : {}),
+      ...(normalizedEmail ? { email: normalizedEmail } : {})
+    };
+
+    storeImpersonation(target);
+    setImpersonationTarget(target);
+    setLoading(true);
+
+    try {
+      await client.clearStore();
+      const session = await fetchViewer();
+      if (!session.isImpersonating) {
+        throw new Error('Unable to impersonate the requested user.');
+      }
+    } catch (error) {
+      clearStoredImpersonation();
+      setImpersonationTarget(null);
+      setIsImpersonating(false);
+      throw error instanceof Error ? error : new Error('Failed to impersonate user.');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchViewer]);
+
+  const stopImpersonation = useCallback(async () => {
+    clearStoredImpersonation();
+    setImpersonationTarget(null);
+    setIsImpersonating(false);
+    setLoading(true);
+
+    try {
+      await client.clearStore();
+      await fetchViewer();
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Failed to stop impersonating.');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchViewer]);
+
   useEffect(() => {
     const token = getStoredToken();
     if (!token) {
+      clearStoredImpersonation();
+      setImpersonationTarget(null);
+      setIsImpersonating(false);
+      setUser(null);
+      setAuthUser(null);
       return;
     }
 
     let isMounted = true;
     setLoading(true);
 
-    fetchCurrentUser()
+    fetchViewer()
       .catch((error) => {
         console.error('Failed to restore session', error);
         clearStoredToken();
+        clearStoredImpersonation();
         setUser(null);
+        setAuthUser(null);
+        setIsImpersonating(false);
+        setImpersonationTarget(null);
       })
       .finally(() => {
         if (isMounted) {
@@ -333,9 +516,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => {
       isMounted = false;
     };
-  }, [fetchCurrentUser]);
+  }, [fetchViewer]);
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout]);
+  const value = useMemo(
+    () => ({
+      user,
+      authUser,
+      loading,
+      isImpersonating,
+      impersonationTarget,
+      login,
+      logout,
+      startImpersonation,
+      stopImpersonation
+    }),
+    [
+      user,
+      authUser,
+      loading,
+      isImpersonating,
+      impersonationTarget,
+      login,
+      logout,
+      startImpersonation,
+      stopImpersonation
+    ]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
