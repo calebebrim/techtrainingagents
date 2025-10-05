@@ -306,7 +306,17 @@ const resolvers = {
       }));
     },
 
-    me: (_parent, _args, context) => requireAuth(context)
+    me: (_parent, _args, context) => requireAuth(context),
+
+    viewer: (_parent, _args, context) => {
+      const user = requireAuth(context);
+      const authUser = context.authUser || user;
+      return {
+        user,
+        authUser,
+        isImpersonating: Boolean(context.isImpersonating && authUser.id !== user.id)
+      };
+    }
   },
 
   Mutation: {

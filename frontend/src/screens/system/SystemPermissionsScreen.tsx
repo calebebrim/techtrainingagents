@@ -1,6 +1,10 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { gql } from '@apollo/client';
+import { useQuery } from '@apollo/client/react';
 import Modal from '../../components/common/Modal';
+import { useAuth } from '../../contexts/AuthContext';
+import { UserRole } from '../../types';
 import { ShieldCheckIcon, OfficeBuildingIcon, UserGroupIcon, AdjustmentsIcon, ChartBarIcon } from '../../components/icons';
 
 type SystemRole = 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'COURSE_COORDINATOR' | 'TECHNICAL_STAFF';
@@ -25,75 +29,6 @@ interface Invite {
     sentAt: string;
     role: SystemRole;
 }
-
-const initialUsers: SystemUser[] = [
-    {
-        id: 'user-1',
-        name: 'Laura Mendes',
-        email: 'laura.mendes@universalfleets.com',
-        organization: 'Universal Fleets',
-        roles: ['SYSTEM_ADMIN'],
-        status: 'active',
-        lastActive: '2m ago',
-        groups: ['System Maintainers'],
-        seatsUsed: 185,
-    },
-    {
-        id: 'user-2',
-        name: 'Carlos Ortega',
-        email: 'c.ortega@nutrilife.com',
-        organization: 'Nutrilife Foods',
-        roles: ['ORG_ADMIN', 'COURSE_COORDINATOR'],
-        status: 'active',
-        lastActive: '14m ago',
-        groups: ['Org Owners'],
-        seatsUsed: 92,
-    },
-    {
-        id: 'user-3',
-        name: 'Fernanda Souza',
-        email: 'fernanda@techspark.io',
-        organization: 'TechSpark Labs',
-        roles: ['ORG_ADMIN', 'TECHNICAL_STAFF'],
-        status: 'active',
-        lastActive: '1h ago',
-        groups: ['Security Reviewers'],
-        seatsUsed: 48,
-    },
-    {
-        id: 'user-4',
-        name: 'Michael Tanaka',
-        email: 'm.tanaka@universalfleets.com',
-        organization: 'Universal Fleets',
-        roles: ['COURSE_COORDINATOR'],
-        status: 'suspended',
-        lastActive: '6d ago',
-        groups: ['Readonly'],
-        seatsUsed: 0,
-    },
-    {
-        id: 'user-5',
-        name: 'Bruna Cavalcanti',
-        email: 'bruna.cavalcanti@alphametal.com',
-        organization: 'AlphaMetal',
-        roles: ['TECHNICAL_STAFF'],
-        status: 'active',
-        lastActive: '32m ago',
-        groups: ['Compliance Review'],
-        seatsUsed: 61,
-    },
-    {
-        id: 'user-6',
-        name: 'Nikhil Sharma',
-        email: 'nikhil.sharma@nutrilife.com',
-        organization: 'Nutrilife Foods',
-        roles: ['COURSE_COORDINATOR', 'TECHNICAL_STAFF'],
-        status: 'invited',
-        lastActive: '—',
-        groups: ['Compliance Review'],
-        seatsUsed: 0,
-    },
-];
 
 const pendingInvites: Invite[] = [
     {
@@ -135,8 +70,98 @@ const groupOptions = [
     'Readonly',
 ];
 
+const SYSTEM_USERS_QUERY = gql`
+    query SystemUsers {
+        organizations {
+            id
+            name
+            users {
+                id
+                name
+                email
+                roles
+                status
+                groups {
+                    id
+                    name
+                }
+            }
+        }
+    }
+`;
+
+const normalizeRole = (role?: string | null): SystemRole | null => {
+    if (!role) return null;
+    switch (role) {
+        case UserRole.SYSTEM_ADMIN:
+            return 'SYSTEM_ADMIN';
+        case UserRole.ORG_ADMIN:
+        case 'Organization Admin':
+            return 'ORG_ADMIN';
+        case UserRole.COURSE_COORDINATOR:
+        case 'Course Coordinator':
+            return 'COURSE_COORDINATOR';
+        case UserRole.COLLABORATOR:
+        case 'Technical Staff':
+            return 'TECHNICAL_STAFF';
+        default:
+            return null;
+    }
+};
+
+const normalizeStatus = (status?: string | null): UserStatus => {
+    const value = status?.toLowerCase();
+    if (value === 'suspended' || value === 'invited') {
+        return value;
+    }
+    return 'active';
+};
+
+const mapUsersFromQuery = (data?: {
+    organizations?: Array<{
+        name?: string | null;
+        users?: Array<{
+            id: string;
+            name?: string | null;
+            email?: string | null;
+            roles?: string[] | null;
+            status?: string | null;
+            groups?: Array<{ id: string; name?: string | null }> | null;
+        }> | null;
+    }> | null;
+}): SystemUser[] => {
+    if (!data?.organizations) {
+        return [];
+    }
+
+    return data.organizations.flatMap((organization) => {
+        const orgName = organization.name || 'Unknown Organization';
+        return (organization.users ?? []).map<SystemUser>((user) => {
+            const normalizedRoles = (user.roles ?? [])
+                .map(normalizeRole)
+                .filter((role): role is SystemRole => Boolean(role));
+
+            return {
+                id: user.id,
+                name: user.name || 'Unnamed User',
+                email: user.email || '—',
+                organization: orgName,
+                roles: normalizedRoles.length > 0 ? normalizedRoles : ['TECHNICAL_STAFF'],
+                status: normalizeStatus(user.status),
+                lastActive: '—',
+                groups: (user.groups ?? []).map((group) => group.name || '').filter(Boolean),
+                seatsUsed: 0,
+            };
+        });
+    });
+};
+
 const SystemPermissionsScreen: React.FC = () => {
-    const [users, setUsers] = useState<SystemUser[]>(initialUsers);
+    const { startImpersonation, isImpersonating, user: actingUser, authUser } = useAuth();
+    const [users, setUsers] = useState<SystemUser[]>([]);
+    const { data, loading: usersLoading, error: usersError } = useQuery(SYSTEM_USERS_QUERY, {
+        fetchPolicy: 'network-only',
+    });
     const [search, setSearch] = useState('');
     const [organizationFilter, setOrganizationFilter] = useState<string>('all');
     const [roleFilter, setRoleFilter] = useState<SystemRole | 'all'>('all');
@@ -145,6 +170,11 @@ const SystemPermissionsScreen: React.FC = () => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteOrg, setInviteOrg] = useState('Universal Fleets');
     const [inviteRole, setInviteRole] = useState<SystemRole>('ORG_ADMIN');
+    const [impersonationLoadingId, setImpersonationLoadingId] = useState<string | null>(null);
+
+    const canImpersonate = Boolean(authUser?.roles.includes(UserRole.SYSTEM_ADMIN));
+    const impersonatedUserId = canImpersonate && isImpersonating ? actingUser?.id ?? null : null;
+    const isLoadingUsers = usersLoading && users.length === 0;
 
     const organizations = useMemo(() => {
         const orgSet = new Set(users.map(user => user.organization));
@@ -199,6 +229,16 @@ const SystemPermissionsScreen: React.FC = () => {
         );
     };
 
+    useEffect(() => {
+        if (usersError) {
+            console.error('Failed to load system users', usersError);
+        }
+    }, [usersError]);
+
+    useEffect(() => {
+        setUsers(mapUsersFromQuery(data));
+    }, [data]);
+
     const handleGroupToggle = (group: string) => {
         if (!editingUser) return;
         setUsers(prev =>
@@ -221,6 +261,24 @@ const SystemPermissionsScreen: React.FC = () => {
         event.preventDefault();
         setInviteModalOpen(false);
         setInviteEmail('');
+    };
+
+    const handleImpersonateUser = async (target: SystemUser) => {
+        if (!canImpersonate) {
+            return;
+        }
+
+        setImpersonationLoadingId(target.id);
+        try {
+            await startImpersonation({ userId: target.id, email: target.email });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to impersonate this user right now.';
+            if (typeof window !== 'undefined') {
+                window.alert(message);
+            }
+        } finally {
+            setImpersonationLoadingId(current => (current === target.id ? null : current));
+        }
     };
 
     return (
@@ -332,7 +390,23 @@ const SystemPermissionsScreen: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                            {filteredUsers.map(user => (
+                            {isLoadingUsers && (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        Loading system users…
+                                    </td>
+                                </tr>
+                            )}
+                            {!isLoadingUsers && filteredUsers.map(user => {
+                                const isCurrentTarget = impersonatedUserId === user.id;
+                                const isLoadingTarget = impersonationLoadingId === user.id;
+                                const impersonationLabel = isCurrentTarget
+                                    ? 'Currently impersonating'
+                                    : isImpersonating
+                                        ? 'Switch to this user'
+                                        : 'Impersonate user';
+
+                                return (
                                 <tr key={user.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40">
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
@@ -362,16 +436,39 @@ const SystemPermissionsScreen: React.FC = () => {
                                     <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.lastActive}</td>
                                     <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.seatsUsed}</td>
                                     <td className="px-6 py-4">
-                                        <button
-                                            onClick={() => setEditingUserId(user.id)}
-                                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:border-primary-500 hover:text-primary-600 dark:border-gray-600 dark:text-gray-300"
-                                        >
-                                            Manage
-                                        </button>
+                                        <div className="flex flex-col gap-2">
+                                            <button
+                                                onClick={() => setEditingUserId(user.id)}
+                                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:border-primary-500 hover:text-primary-600 dark:border-gray-600 dark:text-gray-300"
+                                            >
+                                                Manage
+                                            </button>
+                                            {canImpersonate && (
+                                                <button
+                                                    onClick={() => handleImpersonateUser(user)}
+                                                    disabled={isCurrentTarget || isLoadingTarget}
+                                                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                                                        isCurrentTarget
+                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200'
+                                                            : 'border border-primary-200 text-primary-600 hover:bg-primary-50 dark:border-primary-500/40 dark:text-primary-300 dark:hover:bg-primary-500/10'
+                                                    } ${
+                                                        isLoadingTarget ? 'opacity-70 cursor-not-allowed' : ''
+                                                    }`}
+                                                >
+                                                    {isLoadingTarget ? 'Switching…' : impersonationLabel}
+                                                </button>
+                                            )}
+                                            {isCurrentTarget && (
+                                                <span className="text-xs font-medium text-amber-600 dark:text-amber-300">
+                                                    Active impersonation session
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
-                            ))}
-                            {filteredUsers.length === 0 && (
+                                );
+                            })}
+                            {!isLoadingUsers && filteredUsers.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                                         No users match the current filters.
