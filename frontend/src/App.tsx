@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import MainLayout from './components/layout/MainLayout';
 import LoginScreen from './screens/LoginScreen';
 import OrgHomeScreen from './screens/organization/OrgHomeScreen';
@@ -15,6 +16,8 @@ import MgmtCourseScoresScreen from './screens/management/MgmtCourseScoresScreen'
 import MgmtEmployeeScoresScreen from './screens/management/MgmtEmployeeScoresScreen';
 import MgmtPermissionsScreen from './screens/management/MgmtPermissionsScreen';
 import SystemOrganizationsScreen from './screens/system/SystemOrganizationsScreen';
+import SystemOrganizationDetailScreen from './screens/system/SystemOrganizationDetailScreen';
+import SystemOrganizationRegistrationScreen from './screens/system/SystemOrganizationRegistrationScreen';
 import SystemPermissionsScreen from './screens/system/SystemPermissionsScreen';
 import AccountSettingsScreen from './screens/AccountSettingsScreen';
 import { ApolloProvider } from '@apollo/client/react';
@@ -66,6 +69,8 @@ const AppRoutes: React.FC = () => {
                 <Route path="/manage/permissions" element={guard(hasManagementAccess, <MgmtPermissionsScreen />)} />
 
                 <Route path="/system/organizations" element={guard(hasSystemAccess, <SystemOrganizationsScreen />)} />
+                <Route path="/system/organizations/register" element={guard(hasSystemAccess, <SystemOrganizationRegistrationScreen />)} />
+                <Route path="/system/organizations/:organizationId" element={guard(hasSystemAccess, <SystemOrganizationDetailScreen />)} />
                 <Route path="/system/permissions" element={guard(hasSystemAccess, <SystemPermissionsScreen />)} />
 
                 <Route path="/account-settings" element={<AccountSettingsScreen />} />
@@ -80,11 +85,13 @@ const App: React.FC = () => {
     return (
         <ApolloProvider client={client}>
             <ThemeProvider>
-                <AuthProvider>
-                    <Router>
-                        <AppRoutes />
-                    </Router>
-                </AuthProvider>
+                <NotificationProvider>
+                    <AuthProvider>
+                        <Router>
+                            <AppRoutes />
+                        </Router>
+                    </AuthProvider>
+                </NotificationProvider>
             </ThemeProvider>
         </ApolloProvider>
     );

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { gql } from '@apollo/client';
 import { useQuery } from '@apollo/client/react';
@@ -6,21 +5,15 @@ import Modal from '../../components/common/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 import { ShieldCheckIcon, OfficeBuildingIcon, UserGroupIcon, AdjustmentsIcon, ChartBarIcon } from '../../components/icons';
-
-type SystemRole = 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'COURSE_COORDINATOR' | 'TECHNICAL_STAFF';
-type UserStatus = 'active' | 'suspended' | 'invited';
-
-interface SystemUser {
-    id: string;
-    name: string;
-    email: string;
-    organization: string;
-    roles: SystemRole[];
-    status: UserStatus;
-    lastActive: string;
-    groups: string[];
-    seatsUsed: number;
-}
+import SystemUserTable from './components/SystemUserTable';
+import {
+    SystemRole,
+    UserStatus,
+    SystemUser,
+    roleLabels,
+    roleOrder,
+    statusStyles,
+} from './systemPermissionsTypes';
 
 interface Invite {
     id: string;
@@ -46,21 +39,6 @@ const pendingInvites: Invite[] = [
         role: 'TECHNICAL_STAFF',
     },
 ];
-
-const roleLabels: Record<SystemRole, string> = {
-    SYSTEM_ADMIN: 'System Admin',
-    ORG_ADMIN: 'Organization Admin',
-    COURSE_COORDINATOR: 'Course Coordinator',
-    TECHNICAL_STAFF: 'Technical Staff',
-};
-
-const statusStyles: Record<UserStatus, string> = {
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-    suspended: 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
-    invited: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
-};
-
-const roleOrder: SystemRole[] = ['SYSTEM_ADMIN', 'ORG_ADMIN', 'COURSE_COORDINATOR', 'TECHNICAL_STAFF'];
 
 const groupOptions = [
     'System Maintainers',
@@ -114,7 +92,17 @@ const normalizeStatus = (status?: string | null): UserStatus => {
     if (value === 'suspended' || value === 'invited') {
         return value;
     }
+    if (value === 'inactive') {
+        return 'inactive';
+    }
     return 'active';
+};
+
+const computeSeatUsage = (roles: SystemRole[], status: UserStatus): number => {
+    if (status !== 'active') {
+        return 0;
+    }
+    return roles.length > 0 ? 1 : 0;
 };
 
 const mapUsersFromQuery = (data?: {
@@ -141,16 +129,20 @@ const mapUsersFromQuery = (data?: {
                 .map(normalizeRole)
                 .filter((role): role is SystemRole => Boolean(role));
 
+            const normalizedStatus = normalizeStatus(user.status);
+            const appliedRoles = normalizedRoles.length > 0 ? normalizedRoles : ['TECHNICAL_STAFF'];
+            const seatsUsed = computeSeatUsage(appliedRoles, normalizedStatus);
+
             return {
                 id: user.id,
                 name: user.name || 'Unnamed User',
                 email: user.email || '—',
                 organization: orgName,
-                roles: normalizedRoles.length > 0 ? normalizedRoles : ['TECHNICAL_STAFF'],
-                status: normalizeStatus(user.status),
+                roles: appliedRoles,
+                status: normalizedStatus,
                 lastActive: '—',
                 groups: (user.groups ?? []).map((group) => group.name || '').filter(Boolean),
-                seatsUsed: 0,
+                seatsUsed,
             };
         });
     });
@@ -162,9 +154,6 @@ const SystemPermissionsScreen: React.FC = () => {
     const { data, loading: usersLoading, error: usersError } = useQuery(SYSTEM_USERS_QUERY, {
         fetchPolicy: 'network-only',
     });
-    const [search, setSearch] = useState('');
-    const [organizationFilter, setOrganizationFilter] = useState<string>('all');
-    const [roleFilter, setRoleFilter] = useState<SystemRole | 'all'>('all');
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
     const [isInviteModalOpen, setInviteModalOpen] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
@@ -182,15 +171,11 @@ const SystemPermissionsScreen: React.FC = () => {
         return Array.from(orgSet).sort();
     }, [users]);
 
-    const filteredUsers = useMemo(() => {
-        const term = search.trim().toLowerCase();
-        return users.filter(user => {
-            const matchesTerm = term.length === 0 || `${user.name} ${user.email}`.toLowerCase().includes(term);
-            const matchesOrg = organizationFilter === 'all' || user.organization === organizationFilter;
-            const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter);
-            return matchesTerm && matchesOrg && matchesRole;
-        });
-    }, [users, search, organizationFilter, roleFilter]);
+    useEffect(() => {
+        if (organizations.length > 0 && !organizations.includes(inviteOrg)) {
+            setInviteOrg(organizations[0]);
+        }
+    }, [organizations, inviteOrg]);
 
     const editingUser = useMemo(
         () => users.find(user => user.id === editingUserId) ?? null,
@@ -204,13 +189,14 @@ const SystemPermissionsScreen: React.FC = () => {
         }, {});
         return Object.entries(totals)
             .map(([organization, seats]) => ({ organization, seats }))
+            .filter(entry => entry.seats > 0)
             .sort((a, b) => b.seats - a.seats)
             .slice(0, 4);
     }, [users]);
 
-    const totalSystemAdmins = users.filter(user => user.roles.includes('SYSTEM_ADMIN')).length;
+    const totalSystemAdmins = users.filter(user => user.status === 'active' && user.roles.includes('SYSTEM_ADMIN')).length;
     const totalOrganizations = new Set(users.map(user => user.organization)).size;
-    const totalUsers = users.length;
+    const totalUsers = users.filter(user => user.seatsUsed > 0).length;
     const activeSeats = users.reduce((acc, user) => acc + user.seatsUsed, 0);
 
     const handleRoleToggle = (role: SystemRole) => {
@@ -323,7 +309,7 @@ const SystemPermissionsScreen: React.FC = () => {
                 />
                 <StatCard
                     icon={<UserGroupIcon className="h-5 w-5" />}
-                    label="Privileged Users"
+                    label="Active Privileged Users"
                     value={totalUsers.toString()}
                     trend={`${pendingInvites.length} pending invitations`}
                 />
@@ -333,151 +319,6 @@ const SystemPermissionsScreen: React.FC = () => {
                     value={activeSeats.toString()}
                     trend="Across all organizations"
                 />
-            </section>
-
-            <section className="space-y-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-                        <div className="relative flex-1">
-                            <input
-                                value={search}
-                                onChange={event => setSearch(event.target.value)}
-                                placeholder="Search by name or email"
-                                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                            />
-                        </div>
-                        <select
-                            value={organizationFilter}
-                            onChange={event => setOrganizationFilter(event.target.value)}
-                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:w-48"
-                        >
-                            <option value="all">All organizations</option>
-                            {organizations.map(organization => (
-                                <option key={organization} value={organization}>
-                                    {organization}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={roleFilter}
-                            onChange={event => setRoleFilter(event.target.value as SystemRole | 'all')}
-                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:w-56"
-                        >
-                            <option value="all">All roles</option>
-                            {roleOrder.map(role => (
-                                <option key={role} value={role}>
-                                    {roleLabels[role]}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                        Showing {filteredUsers.length} of {users.length} privileged users
-                    </span>
-                </div>
-
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                    <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                            <tr>
-                                <th className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-300">User</th>
-                                <th className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-300">Organization</th>
-                                <th className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-300">Roles</th>
-                                <th className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-300">Status</th>
-                                <th className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-300">Last Active</th>
-                                <th className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-300">Seats</th>
-                                <th className="px-6 py-4" />
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                            {isLoadingUsers && (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                                        Loading system users…
-                                    </td>
-                                </tr>
-                            )}
-                            {!isLoadingUsers && filteredUsers.map(user => {
-                                const isCurrentTarget = impersonatedUserId === user.id;
-                                const isLoadingTarget = impersonationLoadingId === user.id;
-                                const impersonationLabel = isCurrentTarget
-                                    ? 'Currently impersonating'
-                                    : isImpersonating
-                                        ? 'Switch to this user'
-                                        : 'Impersonate user';
-
-                                return (
-                                <tr key={user.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40">
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-gray-900 dark:text-gray-100">{user.name}</span>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">{user.email}</span>
-                                            <span className="mt-1 text-xs text-gray-400 dark:text-gray-500">Groups: {user.groups.join(', ') || '—'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.organization}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-wrap gap-2">
-                                            {user.roles.map(role => (
-                                                <span
-                                                    key={role}
-                                                    className="inline-flex items-center rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-700 dark:bg-primary-500/10 dark:text-primary-300"
-                                                >
-                                                    {roleLabels[role]}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusStyles[user.status]}`}>
-                                            {user.status === 'invited' ? 'Invitation sent' : user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.lastActive}</td>
-                                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.seatsUsed}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-2">
-                                            <button
-                                                onClick={() => setEditingUserId(user.id)}
-                                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:border-primary-500 hover:text-primary-600 dark:border-gray-600 dark:text-gray-300"
-                                            >
-                                                Manage
-                                            </button>
-                                            {canImpersonate && (
-                                                <button
-                                                    onClick={() => handleImpersonateUser(user)}
-                                                    disabled={isCurrentTarget || isLoadingTarget}
-                                                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                                                        isCurrentTarget
-                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200'
-                                                            : 'border border-primary-200 text-primary-600 hover:bg-primary-50 dark:border-primary-500/40 dark:text-primary-300 dark:hover:bg-primary-500/10'
-                                                    } ${
-                                                        isLoadingTarget ? 'opacity-70 cursor-not-allowed' : ''
-                                                    }`}
-                                                >
-                                                    {isLoadingTarget ? 'Switching…' : impersonationLabel}
-                                                </button>
-                                            )}
-                                            {isCurrentTarget && (
-                                                <span className="text-xs font-medium text-amber-600 dark:text-amber-300">
-                                                    Active impersonation session
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                                );
-                            })}
-                            {!isLoadingUsers && filteredUsers.length === 0 && (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                                        No users match the current filters.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
@@ -539,6 +380,22 @@ const SystemPermissionsScreen: React.FC = () => {
                         )}
                     </div>
                 </div>
+            </section>
+
+            <section className="space-y-4">
+                <SystemUserTable
+                    users={users}
+                    isLoading={isLoadingUsers}
+                    organizations={organizations}
+                    roleLabels={roleLabels}
+                    canImpersonate={canImpersonate}
+                    impersonatedUserId={impersonatedUserId}
+                    impersonationLoadingId={impersonationLoadingId}
+                    onManageUser={setEditingUserId}
+                    onImpersonateUser={handleImpersonateUser}
+                    roleOrder={roleOrder}
+                    totalAccounts={users.length}
+                />
             </section>
 
             <Modal

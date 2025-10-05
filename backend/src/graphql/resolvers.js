@@ -239,9 +239,18 @@ const resolvers = {
     },
 
     organizationDashboard: async (_, { organizationId }, context) => {
-      const user = requireOrgRoles(context, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR]);
-      const resolvedOrganizationId = organizationId || user.organizationId;
-      ensureSameOrganization(user, resolvedOrganizationId);
+      const viewer = requireAuth(context);
+      const resolvedOrganizationId = organizationId || viewer.organizationId;
+      if (!resolvedOrganizationId) {
+        throw createError('Organization not specified.', 'BAD_USER_INPUT');
+      }
+
+      if (!isSystemAdmin(viewer)) {
+        ensureSameOrganization(viewer, resolvedOrganizationId);
+        if (!hasAnyRole(viewer, [Roles.ORG_ADMIN, Roles.COURSE_COORDINATOR])) {
+          throw createError('You do not have permission to view this dashboard.', 'FORBIDDEN');
+        }
+      }
 
       const organization = await Organization.findByPk(resolvedOrganizationId);
       if (!organization) {
@@ -530,8 +539,8 @@ const resolvers = {
         order: [['name', 'ASC']]
       });
     },
-    dashboard: (organization) => {
-      return resolvers.Query.organizationDashboard(null, { organizationId: organization.id });
+    dashboard: (organization, _args, context, info) => {
+      return resolvers.Query.organizationDashboard(null, { organizationId: organization.id }, context, info);
     }
   },
 
