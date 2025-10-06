@@ -9,7 +9,7 @@ import {
     ShieldCheckIcon,
     ChevronRightIcon,
 } from '../../components/icons';
-import { roleLabels } from './systemPermissionsTypes';
+import { roleLabels } from './system-permissions/types';
 import { useTranslation } from 'react-i18next';
 
 const SYSTEM_ORGANIZATION_QUERY = gql`

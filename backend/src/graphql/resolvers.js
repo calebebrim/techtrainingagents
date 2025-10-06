@@ -121,6 +121,15 @@ const resolvers = {
       return Organization.findAll({ order: [['name', 'ASC']] });
     },
 
+    globalSystemUsers: (_parent, _args, context) => {
+      requireSystemAdmin(context);
+      return User.findAll({
+        where: { organizationId: null },
+        order: [['name', 'ASC']],
+        include: [{ model: Group, as: 'groups' }]
+      });
+    },
+
     organization: async (_, { id, slug }, context) => {
       const user = requireAuth(context);
       const where = {};

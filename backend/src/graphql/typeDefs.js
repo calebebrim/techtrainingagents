@@ -49,7 +49,7 @@ const typeDefs = gql`
     roles: [String!]!
     status: String!
     themePreference: String!
-    organization: Organization!
+    organization: Organization
     groups: [Group!]!
     enrollments: [Enrollment!]!
   }
@@ -198,6 +198,7 @@ const typeDefs = gql`
     user(id: ID!): User
     groups(organizationId: ID!): [Group!]!
     enrollments(organizationId: ID, courseId: ID, userId: ID): [Enrollment!]!
+    globalSystemUsers: [User!]!
     organizationDashboard(organizationId: ID!): OrganizationDashboard!
     employeeCourseScores(organizationId: ID!, courseId: ID): [EmployeeScore!]!
     me: User
