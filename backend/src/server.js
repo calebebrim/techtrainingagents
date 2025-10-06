@@ -206,14 +206,40 @@ const bootstrap = async () => {
         throw new Error('Google account did not provide an email.');
       }
 
-      const user = await models.User.findOne({
-        where: { email },
-        include: userInclude
-      });
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const findUserByEmail = async () =>
+        models.User.findOne({
+          where: models.sequelize.where(
+            models.sequelize.fn('lower', models.sequelize.col('email')),
+            normalizedEmail
+          ),
+          include: userInclude
+        });
+
+      let user = await findUserByEmail();
 
       if (!user) {
-        res.status(403).json({ error: 'User is not authorized to access this platform.' });
-        return;
+        const allowedSysAdmins = (process.env.SYS_ADMIN_EMAILS || 'calebebrim@gmail.com')
+          .split(',')
+          .map((entry) => entry.trim().toLowerCase())
+          .filter(Boolean);
+
+        if (!allowedSysAdmins.includes(normalizedEmail)) {
+          res.status(403).json({ error: 'User is not authorized to access this platform.' });
+          return;
+        }
+
+        user = await models.User.create({
+          name: payload?.name || normalizedEmail,
+          email: normalizedEmail,
+          avatarUrl: payload?.picture || null,
+          roles: [Roles.SYS_ADMIN],
+          status: 'ACTIVE',
+          organizationId: null
+        });
+
+        user = await findUserByEmail();
       }
 
       const updates = {

@@ -18,7 +18,7 @@ import MgmtPermissionsScreen from './screens/management/MgmtPermissionsScreen';
 import SystemOrganizationsScreen from './screens/system/SystemOrganizationsScreen';
 import SystemOrganizationDetailScreen from './screens/system/SystemOrganizationDetailScreen';
 import SystemOrganizationRegistrationScreen from './screens/system/SystemOrganizationRegistrationScreen';
-import SystemPermissionsScreen from './screens/system/SystemPermissionsScreen';
+import SystemPermissionsScreen from './screens/system/system-permissions';
 import AccountSettingsScreen from './screens/AccountSettingsScreen';
 import { ApolloProvider } from '@apollo/client/react';
 import client from './apollo';
