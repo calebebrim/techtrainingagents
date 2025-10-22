@@ -11,7 +11,7 @@ Esse é uma plataforma de cursos geradas por IA.
 |     - i18n.ts -> Serve as multiplas traduções do sistema. 
 |     - components -> componentes compartilhados por todo o sistema. 
 |     - contexts -> Contextos da aplicação como: 
-        - AuthContext.tsx: 
+        - AuthContext.tsx: Orquestra a autenticação e tokens.
 |     - screems -> Todas as telas do sistema
 |       - organizacao -> as telas acessível pela organização 
 |       - system -> as telas acessíveis pelos gestores da Aplicação (sysadmin)

@@ -87,3 +87,6 @@ nvm-install:
 
 nvm-version-install:
 	nvm install 22.12.0 && nvm use 22.12.0
+
+ngrok:
+	ngrok http 3000
